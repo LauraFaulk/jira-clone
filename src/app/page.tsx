@@ -20,13 +20,14 @@ export default function ProjectRequestStation() {
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Original Form Dropdown Options
+  // Form Dropdown Options - Updated with Talent & Education teams
   const departments = [
     'Accounting', 'Brand Promise', 'Copilot', 'DB Service', 
-    'DEV', 'IT', 'Innovation', 'Launch', 'Legal', 
+    'DEV', 'IT', 'Internal Education', 'Innovation', 'Launch', 'Legal', 
     'Marketing', 'Ops', 'Patient Billing 3.0', 'People Services', 
-    'Practice Booster & eAssist Publishing', 'Regional Lead', 'Sales'
-  ];
+    'Practice Booster & eAssist Publishing', 'Regional Lead', 'Sales',
+    'Talent Onboarding', 'Talent Placement'
+  ].sort(); // Kept alphabetically sorted for easy picking!
 
   const products = [
     'eAssist Portal', 'Launch Lagoon', 'Opal', 'Oracle', 'Signature App',
@@ -116,10 +117,10 @@ export default function ProjectRequestStation() {
   return (
     <main className="min-h-screen bg-[#0b111e] text-white p-4 sm:p-8 flex flex-col items-center font-sans selection:bg-purple-500 selection:text-white">
       
-      {/* BRANDING HEADER CONTAINER */}
+      {/* FIXED BANNER ROUTE */}
       <div className="w-full max-w-[850px] rounded-2xl overflow-hidden shadow-2xl mb-6 border border-slate-800/50">
         <img 
-          src="/image_81fa83.png" 
+          src="/emivation-station.png" 
           alt="Emi-vation Project Requests Banner" 
           className="w-full h-auto object-cover"
         />
@@ -129,7 +130,8 @@ export default function ProjectRequestStation() {
       <div className="w-full max-w-[850px] bg-[#111827]/90 rounded-2xl p-6 sm:p-10 border border-slate-800/80 shadow-2xl backdrop-blur-md">
         
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#fbcfe8] tracking-tight flex items-center gap-2">
+          {/* FONT COLOR RESTORED TO ORIGINAL PURPLE */}
+          <h1 className="text-2xl sm:text-3xl font-bold text-purple-300 tracking-tight flex items-center gap-2">
             ✨ Project Request Station
           </h1>
           <p className="text-sm text-slate-400 mt-1.5">
