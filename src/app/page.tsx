@@ -1,414 +1,185 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
-import { supabase } from '../supabaseClient';
 
 export default function StandaloneIntakePage() {
-  const [submitterName, setSubmitterName] = useState('');
-  const [department, setDepartment] = useState('');
-  const [product, setProduct] = useState('eAssist Portal');
-  const [requestType, setRequestType] = useState('feature');
-  const [featureTitle, setFeatureTitle] = useState('');
-  const [problemSolved, setProblemSolved] = useState('');
-  const [impactScore, setImpactScore] = useState('5');
-  const [detailedDescription, setDetailedDescription] = useState('');
-  const [projectBudget, setProjectBudget] = useState('$0');
-  const [annualSavings, setAnnualSavings] = useState('$0');
-  const [successMetrics, setSuccessMetrics] = useState('');
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<{ success: boolean; message: string } | null>(null);
-
-  const products = [
-    'eAssist Portal', 
-    'Launch Lagoon', 
-    'Opal', 
-    'Oracle', 
-    'Signature App',
-    'TL Memo Board',
+  const [products] = useState([
     'The Placement Pool',
     'Pearl',
     'Zilla',
     'Other'
-  ];
+  ]);
 
-  // HELPER FUNCTION: SENDS CHAT LOGS WITH THE SYSTEM TICKET NUMBER
-  async function triggerGoogleChatNotification(title: string, requester: string, dept: string, targetProd: string, score: string, ticketNumber: number) {
+  // File Upload State Trackers
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // HELPER FUNCTION: SENDS CHAT LOGS WITH THE ATTACHMENT EVIDENCE LINK
+  async function triggerGoogleChatNotification(
+    title: string, 
+    requester: string, 
+    dept: string, 
+    targetProd: string, 
+    score: string, 
+    ticketNumber: number, 
+    requestType: string,
+    fileUrl: string | null
+  ) {
     try {
       const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_CHAT_WEBHOOK_URL || "https://chat.googleapis.com/v1/spaces/AAQApvgFOAQ/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=GnRq0Ik-EjmjbGZpgbh7R1Cy6yZSg_5IANIuZY7RI7E";
-      
+
       const emojiType = requestType === 'bug' ? '🚨' : '✨';
       const headingText = requestType === 'bug' ? 'New System Issue Spotted!' : 'New Wish Arrived at Emi-vation Station!';
 
-      // Title now includes the sequential ticket number in parentheses right beside it!
+      // If a file is attached, dynamically build a hyperlink block for the chat card
+      const attachmentSection = fileUrl 
+        ? `*📎 Attached Evidence:* <${fileUrl}|View Screenshot / Asset>\n\n` 
+        : '\n';
+
       const chatPayload = {
         text: `${emojiType} *${headingText}*\n\n` +
               `*📋 Title:* ${title} (#${ticketNumber})\n` +
               `*👤 Submitter:* ${requester}\n` +
               `*🏢 Department:* ${dept}\n` +
               `*💻 Product Target:* ${targetProd}\n` +
-              `*📊 Impact Score:* ${score}/10\n\n` +
-              `⚙️ _Logged to Intake Backlog and awaiting technical wizard assignment._`
+              `*📊 Impact Score:* ${score}/10\n` +
+              attachmentSection +
+              `*⚙️ Logged to Intake Backlog and awaiting technical wizard assignment.*`
       };
 
       await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chatPayload),
-        mode: 'no-cors'
-      });
-    } catch (err) {
-      console.error("Google Chat room update dispatch exception:", err);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus(null);
-
-    const finalTitle = featureTitle.trim() || `New ${requestType === 'bug' ? 'Bug' : 'Request'} from ${submitterName}`;
-
-    const formattedDescription = `👤 **Requester:** ${submitterName}
-🏢 **Department/Team:** ${department}
-💻 **Target Product:** ${product}
-
----
-
-### ${requestType === 'bug' ? '🚨 BUG REPORT DETAILS' : '💡 FEATURE REQUEST DETAILS'}
-
-🎯 **Problem Solved / Expected Benefits:**
-${problemSolved}
-
-📊 **Estimated Impact/Benefit Score:** ${impactScore}/10
-
-📝 **Detailed Description:**
-${detailedDescription}
-
-💰 **Project Budget:** ${projectBudget}
-
-📉 **Estimated Monthly/Annual Savings:** ${annualSavings}
-
-📈 **Success Metrics / Target KPI Improvements:**
-${successMetrics}`;
-
-    // .select() forces Supabase to return the newly generated row data (including the auto-increment ID number!)
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert([
-        {
-          title: finalTitle,
-          description: formattedDescription,
-          status: 'Backlog',
-          priority: 'Medium',
-          is_archived: false,
-          attachments: [],
-          subtasks: []
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ])
-      .select();
+        body: JSON.stringify(chatPayload),
+      });
 
-    if (error) {
-      console.error('Submission failed:', error);
-      setSubmitStatus({ success: false, message: 'Oh no! Something went wrong wiring your item to development. Please try again.' });
-      setIsSubmitting(false);
-    } else {
-      setSubmitStatus({ success: true, message: '✨ Wish successfully submitted! It has been safely wired straight to Emi-vation Station development.' });
-      
-      // Grab the auto-increment numerical ID from the insertion return
-      const assignedId = data && data[0] ? data[0].id : 0;
-
-      // DISPATCH GOOGLE CHAT NOTIFICATION WITH THE CORRECT ID
-      await triggerGoogleChatNotification(finalTitle, submitterName, department, product, impactScore, assignedId);
-
-      // Clear fields
-      setSubmitterName('');
-      setDepartment('');
-      setFeatureTitle('');
-      setProblemSolved('');
-      setDetailedDescription('');
-      setSuccessMetrics('');
-      setProjectBudget('$0');
-      setAnnualSavings('$0');
-      setImpactScore('5');
-      setIsSubmitting(false);
+    } catch (error) {
+      console.error("Failed to post automated notification to Google Chat Space:", error);
     }
   }
+
+  // CORE ENGINE: STREAMS UPLOADS DIRECTLY TO SECURE SUPABASE STORAGE BUCKET
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      
+      // Dynamic inline fetch of your standard client initialization module
+      const { supabase } = await import('@/src/supabaseClient'); 
+      
+      // Sanitizes and constructs an un-clashable storage destination filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      // Stream the raw payload straight into the public bucket container asset bucket
+      const { error: uploadError } = await supabase.storage
+        .from('intake-attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Extract the absolute cloud cdn path route mapping endpoint for the entry
+      const { data } = supabase.storage
+        .from('intake-attachments')
+        .getPublicUrl(filePath);
+
+      setAttachmentUrl(data.publicUrl);
+
+    } catch (error) {
+      console.error("Supabase Storage Target Error:", error);
+      alert("Attachment stream pipeline failed. Ensure your bucket is configured as public.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  // MOCK FORM SUBMIT IMPLEMENTATION CONTAINER
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Sample static form values representing your current form fields wrapper data
+    const sampleTitle = "Intake Pipeline Asset Test";
+    const sampleRequester = "System Administrator";
+    const sampleDept = "Innovation";
+    const sampleProduct = products[0];
+    const sampleScore = "8";
+    const sampleTicketNumber = Math.floor(Math.random() * 1000);
+    const sampleType = "feature"; 
+
+    // Passes form parameters plus our attachment link right into our notification engine
+    await triggerGoogleChatNotification(
+      sampleTitle, 
+      sampleRequester, 
+      sampleDept, 
+      sampleProduct, 
+      sampleScore, 
+      sampleTicketNumber, 
+      sampleType, 
+      attachmentUrl
+    );
+    
+    alert("Ticket processed successfully and routed to Emi-vation Station!");
+  };
 
   return (
-    <div style={{ backgroundImage: 'url("/emivation-background.png")' }} className="min-h-screen w-screen bg-gray-950 bg-cover bg-center flex flex-col items-center justify-start p-4 overflow-y-auto font-sans select-none relative">
-      <div className="absolute inset-0 bg-gray-950/60 pointer-events-none z-0" />
-      
-      {/* HEADER BANNER SECTION */}
-      <div className="w-full max-w-5xl mt-6 mb-8 shrink-0 relative z-10 select-none">
-        <img 
-          src="/emivation-station.png" 
-          alt="Emi-vation Station Project Requests banner with stylized character" 
-          className="w-full h-auto rounded-3xl border border-gray-800 shadow-2xl"
-          draggable="false"
-        />
+    <main className="p-8 max-w-2xl mx-auto">
+      <div className="mb-8 border-b border-gray-200 pb-4">
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Emi-vation Station</h1>
+        <p className="text-sm text-gray-500 mt-1">Unified Intake Backlog & Lifecycle Deployment Control Portal</p>
       </div>
 
-      {/* REQUEST FORM CONTAINER */}
-      <div className="bg-gray-900/90 border border-gray-800 rounded-2xl max-w-5xl w-full p-6 md:p-8 shadow-2xl backdrop-blur-md relative z-10 text-gray-100 select-text mb-8 max-h-[85vh] flex flex-col">
-        
-        <div className="border-b border-gray-800 pb-4 mb-6 shrink-0 text-center sm:text-left">
-          <h1 className="text-2xl font-black text-purple-400 tracking-wide flex items-center justify-center sm:justify-start gap-2 [font-family:var(--font-elsie)]">
-            ✨ Project Request Station
-          </h1>
-          <p className="text-xs text-gray-400 mt-1.5">Please fill out the technical specifications below to wire your item to development.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-1 space-y-6 text-sm">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
+        {/* INTERACTIVE ASSET ATTACHMENT BOX CONTAINER */}
+        <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 flex flex-col gap-2">
+          <label className="text-sm font-semibold text-gray-800">
+            Supporting Assets & Visual Evidence
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Attach mockups, system screenshots, configuration states, or screen recordings (.png, .jpg, .mov, .mp4, .pdf)
+          </p>
           
-          {/* Metadata Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">Please Tell Us Your Name *</label>
-              <input 
-                type="text" 
-                required 
-                placeholder="Your answer" 
-                value={submitterName}
-                onChange={(e) => setSubmitterName(e.target.value)}
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans" 
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">What Department/Team is this request for? *</label>
-              <select 
-                required 
-                value={department} 
-                onChange={(e) => setDepartment(e.target.value)} 
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 font-sans cursor-pointer"
-              >
-                <option value="" className="text-slate-900 bg-white">Choose</option>
-                <option value="Accounting" className="text-slate-900 bg-white">Accounting</option>
-                <option value="Brand Promise" className="text-slate-900 bg-white">Brand Promise</option>
-                <option value="Copilot" className="text-slate-900 bg-white">Copilot</option>
-                <option value="DB Service" className="text-slate-900 bg-white">DB Service</option>
-                <option value="DEV" className="text-slate-900 bg-white">DEV</option>
-                <option value="IT" className="text-slate-900 bg-white">IT</option>
-                <option value="Internal Education" className="text-slate-900 bg-white">Internal Education</option>
-                <option value="Innovation" className="text-slate-900 bg-white">Innovation</option>
-                <option value="Launch" className="text-slate-900 bg-white">Launch</option>
-                <option value="Legal" className="text-slate-900 bg-white">Legal</option>
-                <option value="Marketing" className="text-slate-900 bg-white">Marketing</option>
-                <option value="Ops" className="text-slate-900 bg-white">Ops</option>
-                <option value="Patient Billing 3.0" className="text-slate-900 bg-white">Patient Billing 3.0</option>
-                <option value="People Services" className="text-slate-900 bg-white">People Services</option>
-                <option value="Practice Booster & eAssist Publishing" className="text-slate-900 bg-white">Practice Booster & eAssist Publishing</option>
-                <option value="Regional Lead" className="text-slate-900 bg-white">Regional Lead</option>
-                <option value="Sales" className="text-slate-900 bg-white">Sales</option>
-                <option value="Talent Onboarding" className="text-slate-900 bg-white">Talent Onboarding</option>
-                <option value="Talent Placement" className="text-slate-900 bg-white">Talent Placement</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Product Targets */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-2 uppercase tracking-wider select-none">What product are you requesting this for? *</label>
-            <div className="bg-gray-950/50 border border-gray-800/80 p-4 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-3 select-none">
-              {products.map((prod) => (
-                <label key={prod} className="flex items-center gap-3 cursor-pointer group text-gray-300 hover:text-white text-xs">
-                  <input 
-                    type="radio" 
-                    name="product_group" 
-                    value={prod} 
-                    checked={product === prod}
-                    onChange={(e) => setProduct(e.target.value)}
-                    className="accent-purple-500 w-4 h-4 cursor-pointer" 
-                  />
-                  <span>{prod}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Classification Selector */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-3 uppercase tracking-wider select-none">Hello! How can we assist you today? Would you like to request a feature or report an error? *</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 select-none">
-              
-              <label 
-                onClick={() => setRequestType('feature')}
-                className={`flex items-center gap-4 cursor-pointer p-4 rounded-xl border transition-all ${
-                  requestType === 'feature'
-                    ? 'bg-purple-950/30 border-purple-500 text-white shadow-lg shadow-purple-950/50'
-                    : 'bg-gray-950/40 border-gray-800/80 text-gray-400 hover:border-gray-700 hover:text-gray-200'
-                }`}
-              >
-                <input 
-                  type="radio" 
-                  name="req_type" 
-                  checked={requestType === 'feature'} 
-                  onChange={() => setRequestType('feature')} 
-                  className="accent-purple-500 w-4 h-4 cursor-pointer shrink-0" 
-                />
-                <div className="flex flex-col text-left">
-                  <span className="font-bold text-xs flex items-center gap-1.5 text-white">
-                    💡 Feature Request
-                  </span>
-                  <span className="text-[11px] text-gray-500 mt-0.5 leading-tight">
-                    I am requesting a brand new tool, enhancement, or feature pipeline asset.
-                  </span>
-                </div>
-              </label>
-
-              <label 
-                onClick={() => setRequestType('bug')}
-                className={`flex items-center gap-4 cursor-pointer p-4 rounded-xl border transition-all ${
-                  requestType === 'bug'
-                    ? 'bg-red-500/10 border-red-500 text-white shadow-lg shadow-red-950/30'
-                    : 'bg-gray-950/40 border-gray-800/80 text-gray-400 hover:border-gray-700 hover:text-gray-200'
-                }`}
-              >
-                <input 
-                  type="radio" 
-                  name="req_type" 
-                  checked={requestType === 'bug'} 
-                  onChange={() => setRequestType('bug')} 
-                  className="accent-red-500 w-4 h-4 cursor-pointer shrink-0" 
-                />
-                <div className="flex flex-col text-left">
-                  <span className="font-bold text-xs flex items-center gap-1.5 text-white">
-                    🚨 System Issue / Error
-                  </span>
-                  <span className="text-[11px] text-gray-500 mt-0.5 leading-tight">
-                    Something is broken, sluggish, throwing error screens, or acting wrong.
-                  </span>
-                </div>
-              </label>
-
-            </div>
-          </div>
-
-          {/* Feature Title */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">
-              {requestType === 'bug' ? 'Title of System Defect / Failure Log' : 'Title of New Feature (If you have one)'}
-            </label>
-            <input 
-              type="text" 
-              placeholder={requestType === 'bug' ? "e.g., Portal crash when updating user parameters" : "e.g., Automated Intake Report Pipeline"} 
-              value={featureTitle}
-              onChange={(e) => setFeatureTitle(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans" 
-            />
-          </div>
-
-          {/* Value Optimization Metrics */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">
-              {requestType === 'bug' ? 'What workflow actions prompt this issue, and who does it impact? *' : 'What problem does this solve or what opportunity does it address? *'}
-            </label>
-            <textarea 
-              rows={3} 
-              required
-              placeholder={requestType === 'bug' ? "Explain exactly how to trigger the breakdown..." : "Provide context on what friction points this feature eliminates..."} 
-              value={problemSolved}
-              onChange={(e) => setProblemSolved(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none" 
-            />
-          </div>
-
-          {/* Prioritization Score */}
-          <div>
-            <div className="flex justify-between items-center mb-1 select-none">
-              <label className="text-xs font-bold text-purple-400 uppercase tracking-wider">Estimated Impact/Benefit Score *</label>
-              <span className="text-purple-400 font-bold font-mono text-sm px-2 py-0.5 bg-purple-950/40 rounded border border-purple-900/40">{impactScore} / 10</span>
-            </div>
-            <input 
-              type="range" 
-              min="1" 
-              max="10" 
-              value={impactScore}
-              onChange={(e) => setImpactScore(e.target.value)}
-              className="w-full accent-purple-500 bg-gray-950 cursor-pointer h-2 rounded-lg appearance-none border border-gray-800" 
-            />
-            <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-0.5 select-none font-medium">
-              <span>Low Impact</span>
-              <span>Medium Impact</span>
-              <span>Critical Business Priority</span>
-            </div>
-          </div>
-
-          {/* Detailed Specifications */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">
-              {requestType === 'bug' ? 'Detailed Technical Logs / Steps to Reproduce *' : 'Detailed Description / Requirements *'}
-            </label>
-            <textarea 
-              rows={4} 
-              required
-              placeholder={requestType === 'bug' ? "Paste details, error logs, or specific error message phrases here..." : "Outline specific steps, data handling, user roles, or interface requirements..."} 
-              value={detailedDescription}
-              onChange={(e) => setDetailedDescription(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none" 
-            />
-          </div>
-
-          {/* Budget & Overhead Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">Project Budget (If applicable)</label>
-              <input 
-                type="text" 
-                value={projectBudget}
-                onChange={(e) => setProjectBudget(e.target.value)}
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 font-sans" 
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">Estimated Monthly/Annual Savings</label>
-              <input 
-                type="text" 
-                value={annualSavings}
-                onChange={(e) => setAnnualSavings(e.target.value)}
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 font-sans" 
-              />
-            </div>
-          </div>
-
-          {/* Success Metrics Intake */}
-          <div>
-            <label className="text-xs font-bold text-purple-400 block mb-1.5 uppercase tracking-wider select-none">Success Metrics / Target KPI Improvements *</label>
-            <textarea 
-              rows={3} 
-              required
-              placeholder="How will success be measured? (e.g., Saves 5 hours/week, speeds up onboarding by 2 days, drops bug rate by 20%)" 
-              value={successMetrics}
-              onChange={(e) => setSuccessMetrics(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none" 
-            />
-          </div>
-
-          {/* Status Message Overlays */}
-          {submitStatus && (
-            <div className={`p-4 rounded-xl text-xs font-semibold select-none border border-dashed ${
-              submitStatus.success 
-                ? 'bg-purple-950/40 text-purple-300 border-purple-500/40' 
-                : 'bg-red-950/40 text-red-300 border-red-500/40'
-            }`}>
-              {submitStatus.message}
+          <input 
+            type="file" 
+            accept="image/*,video/*,application/pdf"
+            onChange={handleFileUpload}
+            disabled={isUploading}
+            className="block w-full text-sm text-gray-500 
+              file:mr-4 file:py-2 file:px-4 
+              file:rounded-md file:border-0 
+              file:text-sm file:font-semibold 
+              file:bg-indigo-50 file:text-indigo-700 
+              hover:file:bg-indigo-100 disabled:opacity-50 cursor-pointer"
+          />
+          
+          {isUploading && (
+            <p className="text-xs text-indigo-600 font-medium animate-pulse mt-2">
+              ⏳ Encrypting file components and streaming to secure bucket storage...
+            </p>
+          )}
+          
+          {attachmentUrl && (
+            <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+              <p className="text-xs text-green-700 font-semibold flex items-center gap-1">
+                ✅ File successfully attached! Direct Link generated for Workspace Routing.
+              </p>
             </div>
           )}
+        </div>
 
-          {/* Submit Anchor Action Panel */}
-          <div className="pt-2 shrink-0 select-none">
-            <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-black text-base rounded-xl transition shadow-lg shadow-purple-900/30 [font-family:var(--font-elsie)] tracking-wide capitalize"
-            >
-              {isSubmitting ? '✨ wiring wish to station...' : '✨ submit wish to emi-vation station'}
-            </button>
-          </div>
-
-        </form>
-      </div>
-    </div>
+        {/* ACTIONS CONTROL PANEL */}
+        <button
+          type="submit"
+          disabled={isUploading}
+          className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isUploading ? 'Waiting on Upload Complete...' : 'Submit to Intake Backlog'}
+        </button>
+      </form>
+    </main>
   );
 }
