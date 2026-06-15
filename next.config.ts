@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: false, // Disables double-mounting desync issues for dragging
+  /* config options here */
 };
 
 export default nextConfig;
