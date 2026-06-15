@@ -58,11 +58,11 @@ export default function BoardPage() {
     if (error) console.error("Error fetching data:", error);
     else if (data) setTickets(data);
   }
-
-  useEffect(() => {
+useEffect(() => {
     setHasMounted(true);
     fetchTickets();
-    
+
+    // 1. CREATE MODAL PORTAL MOUNT (Preserving your original lines 65-73)
     if (typeof window !== 'undefined') {
       let element = document.getElementById('board-portal-root');
       if (!element) {
@@ -72,6 +72,31 @@ export default function BoardPage() {
       }
       setPortalElement(element);
     }
+
+    // 2. LIVE WEBSOCKET DATABASE LISTENER (The Realtime Sync Engine)
+    const realtimeDatabaseChannel = supabase
+      .channel('live-tickets-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'tickets' },
+        (payload) => {
+          const newRow = payload.new as Ticket;
+          
+          // Map incoming status smoothly into your active 'To-Do' column
+          const formattedNewTicket = {
+            ...newRow,
+            status: newRow.status === 'Backlog' || !newRow.status ? 'To-Do' : newRow.status
+          };
+
+          // Slides the new card right onto the board instantly!
+          setTickets((previousTickets) => [formattedNewTicket, ...previousTickets]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(realtimeDatabaseChannel);
+    };
   }, []);
 
   if (!hasMounted) {
