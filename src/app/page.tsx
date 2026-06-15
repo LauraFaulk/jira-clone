@@ -34,7 +34,7 @@ export default function ProjectRequestStation() {
     'TL Memo Board', 'The Placement Pool', 'Pearl', 'Zilla', 'Other'
   ];
 
-  // 2. GOOGLE CHAT DISPATCH SYSTEM (Fully Parameterized)
+  // 2. GOOGLE CHAT DISPATCH SYSTEM
   async function triggerGoogleChatNotification(
     ticketTitle: string,
     ticketRequester: string,
@@ -103,35 +103,67 @@ export default function ProjectRequestStation() {
       setAttachmentUrl(data.publicUrl);
     } catch (error) {
       console.error("Storage error:", error);
-      alert("Attachment storage failed.");
+      alert("Attachment upload failed. Please verify that your Supabase Storage bucket policy allows public inserts!");
     } finally {
       setIsUploading(false);
     }
   }
 
-  // 4. CLEAN EXPLICIT FORM SUBMIT HANDLER (With Modern React Explicit Event Type)
+  // 4. DATABASE-CONNECTED FORM SUBMIT HANDLER
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const ticketNum = Math.floor(1000 + Math.random() * 9000);
 
-    await triggerGoogleChatNotification(
-      title,
-      name,
-      department,
-      product,
-      score,
-      ticketNum,
-      requestType,
-      attachmentUrl
-    );
+    try {
+      // Initialize Supabase instance
+      const { supabase } = await import('../supabaseClient');
 
-    alert(`Success! Ticket #${ticketNum} has been logged.`);
-    
-    setTitle('');
-    setProblemText('');
-    setDescription('');
-    setMetrics('');
-    setAttachmentUrl(null);
+      // Insert record to database table
+      const { error: dbError } = await supabase
+        .from('tickets') 
+        .insert([{
+          ticket_number: ticketNum,
+          name: name,
+          department: department,
+          product: product,
+          type: requestType,
+          title: title,
+          problem: problemText,
+          priority_score: parseInt(score),
+          description: description,
+          budget: budget,
+          savings: savings,
+          metrics: metrics,
+          attachment_url: attachmentUrl 
+        }]);
+
+      if (dbError) throw dbError;
+
+      // Fire Google Chat notification payload
+      await triggerGoogleChatNotification(
+        title,
+        name,
+        department,
+        product,
+        score,
+        ticketNum,
+        requestType,
+        attachmentUrl
+      );
+
+      alert(`Success! Ticket #${ticketNum} has been logged to your project board and dispatched to chat.`);
+      
+      // Clean up fields for the next submission
+      setTitle('');
+      setProblemText('');
+      setDescription('');
+      setMetrics('');
+      setAttachmentUrl(null);
+
+    } catch (error) {
+      console.error("Database submission failure:", error);
+      alert("Something went wrong saving the item to the database. Verify your database connection or table schema rules.");
+    }
   };
 
   return (
@@ -348,7 +380,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* FILE ATTACHMENT DROP ZONE ZONE */}
+          {/* FILE ATTACHMENT DROP ZONE */}
           <div className="bg-[#030712]/50 border border-dashed border-slate-700 rounded-xl p-6 flex flex-col gap-3">
             <div>
               <label className="text-sm font-bold text-slate-200 tracking-wide block">
