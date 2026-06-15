@@ -69,7 +69,7 @@ export default function StandaloneIntakePage() {
       setIsUploading(true);
       
       // Dynamic inline fetch of your standard client initialization module
-      const { supabase } = await import('@/src/supabaseClient'); 
+      const { supabase } = await import('../supabaseClient'); 
       
       // Sanitizes and constructs an un-clashable storage destination filename
       const fileExt = file.name.split('.').pop();
