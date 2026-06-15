@@ -85,7 +85,9 @@ useEffect(() => {
           // Map incoming status smoothly into your active 'To-Do' column
           const formattedNewTicket = {
             ...newRow,
-            status: newRow.status === 'Backlog' || !newRow.status ? 'To-Do' : newRow.status
+            // 🎯 THE FIX: Keep it as 'Backlog' if it arrives as 'Backlog'!
+            // Only map it to 'To-Do' if the status field is completely empty or missing.
+            status: !newRow.status ? 'To-Do' : newRow.status
           };
 
           // Slides the new card right onto the board instantly!

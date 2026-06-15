@@ -134,7 +134,7 @@ export default function ProjectRequestStation() {
       const { error: dbError } = await supabase
         .from('tickets') 
         .insert([{
-          title: `${title || 'Untitled'} (#${ticketNum})`,
+          title: title || 'Untitled Request'
           description: optimizedDescription,
           priority: score === '10' ? 'Critical' : parseInt(score) >= 7 ? 'High' : 'Medium',
           status: 'Backlog'
