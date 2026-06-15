@@ -109,37 +109,40 @@ export default function ProjectRequestStation() {
     }
   }
 
-  // 4. DATABASE-CONNECTED FORM SUBMIT HANDLER
+  // 4. SCHEMA-COMPLIANT DATABASE FORM SUBMIT HANDLER
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const ticketNum = Math.floor(1000 + Math.random() * 9000);
 
     try {
-      // Initialize Supabase instance
+      // Initialize secure database connector instance
       const { supabase } = await import('../supabaseClient');
 
-      // Insert record to database table
+      // Pack advanced code parameters inside your active text description layout column
+      const optimizedDescription = 
+        `👤 **Requester:** ${name}\n` +
+        `🏢 **Department:** ${department}\n` +
+        `💻 **Product Target:** ${product}\n` +
+        `🚨 **Type:** ${requestType === 'bug' ? 'Bug / Issue' : 'Feature Request'}\n` +
+        `⚠️ **Problem / Friction:** ${problemText}\n\n` +
+        `📋 **Detailed Requirements:**\n${description}\n\n` +
+        `💰 **Financial Profile:** Budget: ${budget} / Savings: ${savings}\n` +
+        `📊 **Success Metrics:** ${metrics}\n\n` +
+        `📎 **Evidence Link:** ${attachmentUrl ? attachmentUrl : 'None Attached'}`;
+
+      // Insert matching exactly your active columns: title, description, priority, and status
       const { error: dbError } = await supabase
         .from('tickets') 
         .insert([{
-          ticket_number: ticketNum,
-          name: name,
-          department: department,
-          product: product,
-          type: requestType,
-          title: title,
-          problem: problemText,
-          priority_score: parseInt(score),
-          description: description,
-          budget: budget,
-          savings: savings,
-          metrics: metrics,
-          attachment_url: attachmentUrl 
+          title: `${title || 'Untitled'} (#${ticketNum})`,
+          description: optimizedDescription,
+          priority: score === '10' ? 'Critical' : parseInt(score) >= 7 ? 'High' : 'Medium',
+          status: 'Backlog'
         }]);
 
       if (dbError) throw dbError;
 
-      // Fire Google Chat notification payload
+      // Fire Google Chat notification payload straight to your space
       await triggerGoogleChatNotification(
         title,
         name,
@@ -153,7 +156,7 @@ export default function ProjectRequestStation() {
 
       alert(`Success! Ticket #${ticketNum} has been logged to your project board and dispatched to chat.`);
       
-      // Clean up fields for the next submission
+      // Clean interface entry areas
       setTitle('');
       setProblemText('');
       setDescription('');
@@ -161,8 +164,8 @@ export default function ProjectRequestStation() {
       setAttachmentUrl(null);
 
     } catch (error) {
-      console.error("Database submission failure:", error);
-      alert("Something went wrong saving the item to the database. Verify your database connection or table schema rules.");
+      console.error("Database schema mismatch interaction blocked:", error);
+      alert("Submission encountered a column mapping error. Re-verifying database sync rules.");
     }
   };
 
@@ -171,7 +174,7 @@ export default function ProjectRequestStation() {
       className="min-h-screen bg-[#0b111e] text-white p-4 sm:p-8 flex flex-col items-center font-sans selection:bg-purple-500 selection:text-white bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: "url('/emivation-background.png')" }}
     >
-      {/* BRANDING HEADER BANNER */}
+      {/* BRANDING BANNER HEADER */}
       <div className="w-full max-w-[850px] rounded-2xl overflow-hidden shadow-2xl mb-6 border border-slate-800/50">
         <img 
           src="/emivation-station.png" 
@@ -180,7 +183,7 @@ export default function ProjectRequestStation() {
         />
       </div>
 
-      {/* CORE INTERACTION CARD CONTAINER */}
+      {/* CORE WORKSPACE CARD INTERFACE CONTAINER */}
       <div className="w-full max-w-[850px] bg-[#111827]/90 rounded-2xl p-6 sm:p-10 border border-slate-800/80 shadow-2xl backdrop-blur-md">
         
         <div className="mb-8">
@@ -194,7 +197,7 @@ export default function ProjectRequestStation() {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           
-          {/* USER INFO SECTION ROW */}
+          {/* IDENTIFICATION BLOCKS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Please Tell Us Your Name *</label>
@@ -225,7 +228,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* PRODUCT SCOPE MATRIX SELECTION GRID */}
+          {/* SYSTEM APPLICATION MATRICES GRID */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">What Product Are You Requesting This For? *</label>
             <div className="bg-[#030712]/60 border border-slate-800/80 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -246,7 +249,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* ASSISTANCE ROUTER CARD CHANNELS */}
+          {/* REQUEST DIRECTION CARD SWITCH CHANNELS */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Hello! How Can We Assist You Today? Would You Like To: *</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -282,7 +285,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* TITLE INPUT DYNAMIC ROUTER HEADER */}
+          {/* SUMMARY TITLE TEXT FIELD */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">
               {requestType === 'bug' ? 'TITLE OF SYSTEM ISSUE / ERROR *' : 'TITLE OF NEW FEATURE (IF YOU HAVE ONE)'}
@@ -296,7 +299,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* PROBLEM STATEMENTS */}
+          {/* VALUE PROPOSITION STRATEGIC STATEMENTS */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">What Problem Does This Solve Or What Opportunity Does It Address? *</label>
             <textarea
@@ -309,7 +312,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* IMPACT MATRIX RANGE SLIDER */}
+          {/* RANGE BAR OVERHEAD TRACK CONTROL */}
           <div className="flex flex-col gap-2.5 p-5 bg-[#030712]/40 rounded-xl border border-slate-800">
             <div className="flex justify-between items-center">
               <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Estimated Impact/Benefit Score *</label>
@@ -332,7 +335,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* DESCRIPTION TEXTAREA REQUIREMENTS */}
+          {/* EXTRA SPECIFICATIONS BLOCK REQUIREMENTS TEXTAREA */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Detailed Description / Requirements *</label>
             <textarea
@@ -345,7 +348,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* BUDGET ESTIMATIONS TWIN ROW */}
+          {/* BUDGET ESTIMATION COUPLING MATRIX GRID ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Project Budget (If Applicable)</label>
@@ -367,7 +370,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* KPI PERFORMANCE SUCCESS METRICS */}
+          {/* METRICS ANALYTICS MEASUREMENTS TARGET */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Success Metrics / Target KPI Improvements *</label>
             <textarea
@@ -380,7 +383,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* FILE ATTACHMENT DROP ZONE */}
+          {/* VAULT STORAGE STREAM MEDIA DROP CONTAINER */}
           <div className="bg-[#030712]/50 border border-dashed border-slate-700 rounded-xl p-6 flex flex-col gap-3">
             <div>
               <label className="text-sm font-bold text-slate-200 tracking-wide block">
@@ -422,7 +425,7 @@ export default function ProjectRequestStation() {
             )}
           </div>
 
-          {/* SUBMIT ACTION MODULE BUTTON CONTROL */}
+          {/* ACTION DEPLOY MAIN FORM MODULE CONTROL BUTTON */}
           <button
             type="submit"
             disabled={isUploading}
