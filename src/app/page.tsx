@@ -3,11 +3,11 @@
 import { useState } from 'react';
 
 export default function ProjectRequestStation() {
-  // Form Data Fields
+  // 1. ALL FORM STATE VARIABLE DECLARATIONS
   const [name, setName] = useState('');
   const [department, setDepartment] = useState('');
   const [product, setProduct] = useState('');
-  const [requestType, setRequestType] = useState('feature'); // 'feature' or 'bug'
+  const [requestType, setRequestType] = useState('feature'); 
   const [title, setTitle] = useState('');
   const [problemText, setProblemText] = useState('');
   const [score, setScore] = useState('5');
@@ -16,11 +16,11 @@ export default function ProjectRequestStation() {
   const [savings, setSavings] = useState('$0');
   const [metrics, setMetrics] = useState('');
 
-  // File Upload Infrastructure
+  // Storage Media Upload State Trackers
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Form Dropdown Options
+  // Selector Option Parameter Matrices
   const departments = [
     'Accounting', 'Brand Promise', 'Copilot', 'DB Service', 
     'DEV', 'IT', 'Internal Education', 'Innovation', 'Launch', 'Legal', 
@@ -34,25 +34,34 @@ export default function ProjectRequestStation() {
     'TL Memo Board', 'The Placement Pool', 'Pearl', 'Zilla', 'Other'
   ];
 
-  // GOOGLE CHAT DISPATCH SYSTEM
-  async function triggerGoogleChatNotification(ticketNumber: number) {
+  // 2. GOOGLE CHAT DISPATCH SYSTEM (Fully Parameterized)
+  async function triggerGoogleChatNotification(
+    ticketTitle: string,
+    ticketRequester: string,
+    ticketDept: string,
+    ticketProd: string,
+    ticketScore: string,
+    ticketNumber: number,
+    type: string,
+    fileLink: string | null
+  ) {
     try {
       const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_CHAT_WEBHOOK_URL || "https://chat.googleapis.com/v1/spaces/AAQApvgFOAQ/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=GnRq0Ik-EjmjbGZpgbh7R1Cy6yZSg_5IANIuZY7RI7E";
 
-      const emoji = requestType === 'bug' ? '🚨' : '✨';
-      const heading = requestType === 'bug' ? 'New System Issue Spotted!' : 'New Wish Arrived at Emi-vation Station!';
+      const emoji = type === 'bug' ? '🚨' : '✨';
+      const heading = type === 'bug' ? 'New System Issue Spotted!' : 'New Wish Arrived at Emi-vation Station!';
       
-      const fileSection = attachmentUrl 
-        ? `*📎 Attached Evidence:* <${attachmentUrl}|View Attached Media Asset>\n\n` 
+      const fileSection = fileLink 
+        ? `*📎 Attached Evidence:* <${fileLink}|View Attached Media Asset>\n\n` 
         : '\n';
 
       const chatPayload = {
         text: `${emoji} *${heading}*\n\n` +
-              `*📋 Title:* ${title || 'Untitled Request'} (#${ticketNumber})\n` +
-              `*👤 Submitter:* ${name}\n` +
-              `*🏢 Department:* ${department}\n` +
-              `*💻 Product Target:* ${product}\n` +
-              `*📊 Impact Score:* ${score}/10\n` +
+              `*📋 Title:* ${ticketTitle || 'Untitled Request'} (#${ticketNumber})\n` +
+              `*👤 Submitter:* ${ticketRequester}\n` +
+              `*🏢 Department:* ${ticketDept}\n` +
+              `*💻 Product Target:* ${ticketProd}\n` +
+              `*📊 Impact Score:* ${ticketScore}/10\n` +
               `*💰 Budget/Savings:* ${budget} / ${savings}\n` +
               fileSection +
               `*⚙️ Logged to Intake Backlog and awaiting technical wizard assignment.*`
@@ -64,11 +73,11 @@ export default function ProjectRequestStation() {
         body: JSON.stringify(chatPayload),
       });
     } catch (error) {
-      console.error("Notification error:", error);
+      console.error("Notification engine error:", error);
     }
   }
 
-  // SUPABASE ATTACHMENT CONTROLLER
+  // 3. STORAGE FILE UPLOADER PIPE
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -100,10 +109,22 @@ export default function ProjectRequestStation() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 4. CLEAN EXPLICIT FORM SUBMIT HANDLER (With Modern React Explicit Event Type)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const ticketNum = Math.floor(1000 + Math.random() * 9000);
-    await triggerGoogleChatNotification(ticketNum);
+
+    await triggerGoogleChatNotification(
+      title,
+      name,
+      department,
+      product,
+      score,
+      ticketNum,
+      requestType,
+      attachmentUrl
+    );
+
     alert(`Success! Ticket #${ticketNum} has been logged.`);
     
     setTitle('');
@@ -114,12 +135,10 @@ export default function ProjectRequestStation() {
   };
 
   return (
-    /* FIXED BACKGROUND PATH: Injects emivation-background.png seamlessly into layout layout viewport */
     <main 
       className="min-h-screen bg-[#0b111e] text-white p-4 sm:p-8 flex flex-col items-center font-sans selection:bg-purple-500 selection:text-white bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: "url('/emivation-background.png')" }}
     >
-      
       {/* BRANDING HEADER BANNER */}
       <div className="w-full max-w-[850px] rounded-2xl overflow-hidden shadow-2xl mb-6 border border-slate-800/50">
         <img 
@@ -129,7 +148,7 @@ export default function ProjectRequestStation() {
         />
       </div>
 
-      {/* CORE INTERACTION CARD */}
+      {/* CORE INTERACTION CARD CONTAINER */}
       <div className="w-full max-w-[850px] bg-[#111827]/90 rounded-2xl p-6 sm:p-10 border border-slate-800/80 shadow-2xl backdrop-blur-md">
         
         <div className="mb-8">
@@ -174,7 +193,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* PRODUCT MATRIX SELECTION GRID */}
+          {/* PRODUCT SCOPE MATRIX SELECTION GRID */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">What Product Are You Requesting This For? *</label>
             <div className="bg-[#030712]/60 border border-slate-800/80 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -195,7 +214,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* CLASSIFICATION TYPE TOGGLE SWITCH */}
+          {/* ASSISTANCE ROUTER CARD CHANNELS */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Hello! How Can We Assist You Today? Would You Like To: *</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -231,7 +250,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* DYNAMIC TITLE LABEL VALUE HEADER */}
+          {/* TITLE INPUT DYNAMIC ROUTER HEADER */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">
               {requestType === 'bug' ? 'TITLE OF SYSTEM ISSUE / ERROR *' : 'TITLE OF NEW FEATURE (IF YOU HAVE ONE)'}
@@ -245,7 +264,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* VALUE STATEMENT TEXTAREA */}
+          {/* PROBLEM STATEMENTS */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">What Problem Does This Solve Or What Opportunity Does It Address? *</label>
             <textarea
@@ -258,7 +277,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* OPERATIONAL RANGE SLIDER CONTROL */}
+          {/* IMPACT MATRIX RANGE SLIDER */}
           <div className="flex flex-col gap-2.5 p-5 bg-[#030712]/40 rounded-xl border border-slate-800">
             <div className="flex justify-between items-center">
               <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Estimated Impact/Benefit Score *</label>
@@ -281,7 +300,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* REQUIREMENTS DETAILS TEXTAREA */}
+          {/* DESCRIPTION TEXTAREA REQUIREMENTS */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Detailed Description / Requirements *</label>
             <textarea
@@ -294,7 +313,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* FINANCIAL ESTIMATIONS TWIN GRID ROW */}
+          {/* BUDGET ESTIMATIONS TWIN ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Project Budget (If Applicable)</label>
@@ -316,7 +335,7 @@ export default function ProjectRequestStation() {
             </div>
           </div>
 
-          {/* SUCCESS TARGET PERFORMANCE KPI */}
+          {/* KPI PERFORMANCE SUCCESS METRICS */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold tracking-wider uppercase text-[#c084fc]">Success Metrics / Target KPI Improvements *</label>
             <textarea
@@ -329,7 +348,7 @@ export default function ProjectRequestStation() {
             />
           </div>
 
-          {/* SECURE STORAGE FILE DROP ZONE */}
+          {/* FILE ATTACHMENT DROP ZONE ZONE */}
           <div className="bg-[#030712]/50 border border-dashed border-slate-700 rounded-xl p-6 flex flex-col gap-3">
             <div>
               <label className="text-sm font-bold text-slate-200 tracking-wide block">
@@ -371,11 +390,11 @@ export default function ProjectRequestStation() {
             )}
           </div>
 
-          {/* ACTION SUBMIT CONTROLLER */}
+          {/* SUBMIT ACTION MODULE BUTTON CONTROL */}
           <button
             type="submit"
             disabled={isUploading}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition duration-200 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-[0.99] border border-purple-500/20"
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-xl disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-[0.99] border border-purple-500/20"
           >
             {isUploading ? 'Streaming Upload Assets...' : '🔮 Submit Wish To Emi-vation Station'}
           </button>
