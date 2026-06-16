@@ -50,7 +50,9 @@ export default function BoardPage() {
   // ATTACHMENT MODAL INPUT STATES
   const [newLinkName, setNewLinkName] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
-
+  const [uploadType, setUploadType] = useState<'link' | 'file'>('link');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
   const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
 
   async function fetchTickets() {
@@ -170,14 +172,44 @@ export default function BoardPage() {
   }
 
   async function handleAddAttachment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeTicket || !newLinkUrl.trim() || !newLinkName.trim()) return;
+  e.preventDefault();
+  if (!activeTicket) return;
 
+  // Validation safety check depending on selected mode
+  if (uploadType === 'link' && (!newLinkUrl.trim() || !newLinkName.trim())) return;
+  if (uploadType === 'file' && !selectedFile) return;
+
+  try {
     let formattedUrl = newLinkUrl.trim();
-    if (!/^https?:\/\//i.test(formattedUrl)) {
-      formattedUrl = 'https://' + formattedUrl;
+
+    // --- CASE 1: USER CHOSE TO UPLOAD A FILE ---
+    if (uploadType === 'file' && selectedFile) {
+      const fileExt = selectedFile.name.split('.').pop();
+      const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+      const filePath = `ticket-${activeTicket.id}/${uniqueFileName}`;
+
+      // Upload file directly into your existing bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('intake-attachments')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // Extract the public destination path URL string
+      const { data: urlData } = supabase.storage
+        .from('intake-attachments')
+        .getPublicUrl(filePath);
+
+      formattedUrl = urlData.publicUrl;
+    } 
+    // --- CASE 2: USER CHOSE A STANDARD URL LINK ---
+    else {
+      if (!/^https?:\/\//i.test(formattedUrl)) {
+        formattedUrl = 'https://' + formattedUrl;
+      }
     }
 
+    // Assemble the structural payload asset object
     const currentAttachments = activeTicket.attachments || [];
     const newFile: Attachment = {
       id: crypto.randomUUID(),
@@ -187,6 +219,7 @@ export default function BoardPage() {
 
     const updatedAttachments = [...currentAttachments, newFile];
 
+    // --- CASE 3: SAVE TO SUPABASE DATABASE ROW ---
     const { error } = await supabase
       .from('tickets')
       .update({ attachments: updatedAttachments })
@@ -194,14 +227,23 @@ export default function BoardPage() {
 
     if (error) {
       console.error("Error saving resource link:", error);
+      alert("Failed to save to database.");
     } else {
+      // Clear forms out and sync local UI state immediately
       setNewLinkName('');
       setNewLinkUrl('');
+      setSelectedFile(null);
+      
       const freshlyUpdatedTicket = { ...activeTicket, attachments: updatedAttachments };
       setActiveTicket(freshlyUpdatedTicket);
       setTickets(tickets.map(t => t.id === activeTicket.id ? freshlyUpdatedTicket : t));
     }
+
+  } catch (error) {
+    console.error("Catch interceptor hit during attachment processing:", error);
+    alert("An unexpected processing error occurred.");
   }
+}
 
   async function handleDeleteAttachment(attachmentId: string) {
     if (!activeTicket) return;
@@ -850,34 +892,77 @@ export default function BoardPage() {
                       )}
                     </div>
 
-                    {!isEditing && (
-                      <form onSubmit={handleAddAttachment} className="flex flex-col gap-2 pt-1 select-none">
-                        <input 
-                          type="text" 
-                          required
-                          placeholder="Link or File Name (e.g., Project Scope, Notion, File Link)" 
-                          value={newLinkName}
-                          onChange={(e) => setNewLinkName(e.target.value)}
-                          className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans w-full"
-                        />
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            required
-                            placeholder="Paste absolute link or URL path..." 
-                            value={newLinkUrl}
-                            onChange={(e) => setNewLinkUrl(e.target.value)}
-                            className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans flex-1"
-                          />
-                          <button 
-                            type="submit" 
-                            className="px-4 py-2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 text-blue-300 hover:text-white rounded-xl text-xs font-bold transition shrink-0"
-                          >
-                            + Attach
-                          </button>
-                        </div>
-                      </form>
-                    )}
+                    <form onSubmit={handleAddAttachment} className="flex flex-col gap-2 pt-1 select-none">
+  {/* /* 1. File/Link Choice Segmented Controls */}
+  <div className="flex bg-gray-950 p-1 rounded-xl border border-gray-800 text-xs self-start mb-1">
+    <button 
+      type="button"
+      onClick={() => setUploadType('link')}
+      className={`px-3 py-1 rounded-lg transition ${uploadType === 'link' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}
+    >
+      Link URL
+    </button>
+    <button 
+      type="button"
+      onClick={() => setUploadType('file')}
+      className={`px-3 py-1 rounded-lg transition ${uploadType === 'file' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}
+    >
+      Upload File (PDF/Image)
+    </button>
+  </div>
+
+  {/* /* 2. Common Display Name Input */}
+  <input
+    type="text"
+    required
+    placeholder={uploadType === 'link' ? "Link Name (e.g., Project Scope, Notion)" : "File Name / Asset Description"}
+    value={newLinkName}
+    onChange={(e) => setNewLinkName(e.target.value)}
+    className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans w-full"
+  />
+
+  {/* /* 3. Conditional Resource Picker */}
+  <div className="flex gap-2">
+    {uploadType === 'link' ? (
+      <input
+        type="text"
+        required
+        placeholder="Paste absolute link or URL path..."
+        value={newLinkUrl}
+        onChange={(e) => setNewLinkUrl(e.target.value)}
+        className="flex-1 bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans"
+      />
+    ) : (
+      <div className="relative flex-1 bg-gray-950 border border-dashed border-gray-800 hover:border-gray-700 rounded-xl transition px-3 py-2 text-xs flex items-center justify-between cursor-pointer">
+        <input
+          type="file"
+          required={!selectedFile}
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            const file = e.target.files?.[0] || null;
+            setSelectedFile(file);
+            if (file && !newLinkName) {
+              setNewLinkName(file.name.split('.').slice(0, -1).join('.'));
+            }
+          }}
+          className="absolute inset-0 opacity-0 cursor-pointer"
+        />
+        <span className="text-gray-400 truncate max-w-[200px]">
+          {selectedFile ? selectedFile.name : "Choose screenshot or PDF..."}
+        </span>
+        <span className="text-xs text-gray-500 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">Browse</span>
+      </div>
+    )}
+
+    {/* /* 4. Action Button */}
+    <button 
+      type="submit" 
+      className="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-xs px-4 transition shrink-0"
+    >
+      {uploadType === 'link' ? '+ Attach' : '+ Upload'}
+    </button>
+  </div>
+</form>
                   </div>
 
                   {/* Subtask Section Checklist */}
