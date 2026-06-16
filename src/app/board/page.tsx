@@ -58,11 +58,13 @@ export default function BoardPage() {
     if (error) console.error("Error fetching data:", error);
     else if (data) setTickets(data);
   }
-useEffect(() => {
+
+  useEffect(() => {
+    hasMounted && setHasMounted(true); // Small syntax safety
     setHasMounted(true);
     fetchTickets();
 
-    // 1. CREATE MODAL PORTAL MOUNT (Preserving your original lines 65-73)
+    // 1. CREATE MODAL PORTAL MOUNT
     if (typeof window !== 'undefined') {
       let element = document.getElementById('board-portal-root');
       if (!element) {
@@ -78,20 +80,56 @@ useEffect(() => {
       .channel('live-tickets-feed')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'tickets' },
+        { event: '*', schema: 'public', table: 'tickets' },
         (payload) => {
-          const newRow = payload.new as Ticket;
-          
-          // Map incoming status smoothly into your active 'To-Do' column
-          const formattedNewTicket = {
-            ...newRow,
-            // 🎯 THE FIX: Keep it as 'Backlog' if it arrives as 'Backlog'!
-            // Only map it to 'To-Do' if the status field is completely empty or missing.
-            status: !newRow.status ? 'To-Do' : newRow.status
-          };
+          const eventType = payload.eventType;
 
-          // Slides the new card right onto the board instantly!
-          setTickets((previousTickets) => [formattedNewTicket, ...previousTickets]);
+          // --- CASE 1: TICKET WAS UPDATED OR MOVED ---
+          if (eventType === 'UPDATE') {
+            const updatedRow = payload.new as Ticket;
+            
+            setTickets((prevTickets) =>
+              prevTickets.map((ticket) =>
+                ticket.id === updatedRow.id ? { ...ticket, ...updatedRow } : ticket
+              )
+            );
+
+            // If the user currently has this specific card open in their modal details tray,
+            // update the tray info in real-time too!
+            setActiveTicket((currentActive) => 
+              currentActive && currentActive.id === updatedRow.id 
+                ? { ...currentActive, ...updatedRow } 
+                : currentActive
+            );
+          }
+
+          // --- CASE 2: NEW TICKET WAS CREATED ---
+          else if (eventType === 'INSERT') {
+            const newRow = payload.new as Ticket;
+            const formattedNewTicket: Ticket = {
+              ...newRow,
+              status: !newRow.status ? 'To-Do' : newRow.status
+            };
+
+            setTickets((prevTickets) => {
+              // Double check to make sure we don't accidentally add duplicate items
+              if (prevTickets.some(t => t.id === formattedNewTicket.id)) return prevTickets;
+              return [formattedNewTicket, ...prevTickets];
+            });
+          }
+
+          // --- CASE 3: TICKET WAS DELETED ---
+          else if (eventType === 'DELETE') {
+            const oldRow = payload.old as { id: number };
+            
+            // Wipe it off the board instantly
+            setTickets((prevTickets) => prevTickets.filter((t) => t.id !== oldRow.id));
+            
+            // Close the details view modal automatically if it was the card that got deleted
+            setActiveTicket((currentActive) => 
+              currentActive && currentActive.id === oldRow.id ? null : currentActive
+            );
+          }
         }
       )
       .subscribe();
@@ -495,7 +533,6 @@ useEffect(() => {
                       <span className={`absolute top-0 right-0 text-[10px] px-2 py-0.5 rounded border font-sans font-bold ${badge.style}`}>
                         {badge.text.split(' ')[1]}
                       </span>
-                      {/* 🛠️ OUTSIDE SIDEBAR TITLE: Prepend ticket ID (image_943c42.png specification alignment) */}
                       <h4 className="font-semibold text-sm text-white pr-16 truncate">
                         <span className="text-purple-400 font-bold font-mono mr-1">#{ticket.id}</span> {ticket.title}
                       </h4>
@@ -565,7 +602,6 @@ useEffect(() => {
                         >
                           <div>
                             <div className="flex justify-between items-start gap-4">
-                              {/* 🛠️ OUTSIDE ARCHIVE TITLE: Prepend ticket ID (image_943c42.png specification alignment) */}
                               <h3 className="font-bold text-base text-white truncate pr-16">
                                 <span className="text-purple-400 font-bold font-mono mr-1">#{ticket.id}</span> {ticket.title}
                               </h3>
@@ -648,7 +684,6 @@ useEffect(() => {
                                         <span className={`absolute top-0 right-0 text-[10px] px-1.5 py-0.5 rounded border font-sans font-bold ${badge.style}`}>
                                           {badge.text.split(' ')[1]}
                                         </span>
-                                        {/* 🛠️ OUTSIDE BOARD CARD TITLE: Prepend ticket ID (image_943c42.png specification alignment) */}
                                         <h4 className="font-semibold text-sm text-white group-hover:text-purple-300 pr-16 truncate">
                                           <span className="text-purple-400 font-bold font-mono mr-1">#{ticket.id}</span> {ticket.title}
                                         </h4>
@@ -702,7 +737,6 @@ useEffect(() => {
                     📌 {activeTicket.status} Mode
                   </span>
                   
-                  {/* 🛠️ INSIDE TICKET HEADER: Added Ticket Number component slot between Mode and Priority (image_943c7e.png specification alignment) */}
                   <div className="px-2.5 py-1 rounded bg-gray-950 border border-gray-800 text-purple-400 font-bold font-mono tracking-wider text-[11px] uppercase">
                     Ticket #{activeTicket.id}
                   </div>
@@ -788,9 +822,9 @@ useEffect(() => {
                 {/* RIGHT COLUMN: LINKS & SUBTASK CHECKLIST */}
                 <div className="md:col-span-5 space-y-6 flex flex-col justify-between h-full min-h-0">
                   
-                  {/* Google Workspace Tray */}
+                  {/* Documentation Station Link Tray */}
                   <div className="space-y-3">
-                    <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider block select-none">📂 Google Workspace Documentation Links</h3>
+                    <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider block select-none">📂 Documentation Station</h3>
                     
                     <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto pr-1">
                       {(activeTicket.attachments || []).map((file) => (
@@ -812,7 +846,7 @@ useEffect(() => {
                         </div>
                       ))}
                       {(activeTicket.attachments || []).length === 0 && (
-                        <p className="text-xs text-gray-600 italic pl-1">No active Google Suite references added yet.</p>
+                        <p className="text-xs text-gray-600 italic pl-1">No reference files or links attached yet.</p>
                       )}
                     </div>
 
@@ -821,7 +855,7 @@ useEffect(() => {
                         <input 
                           type="text" 
                           required
-                          placeholder="Link Name (e.g., Google Sheet)" 
+                          placeholder="Link or File Name (e.g., Project Scope, Notion, File Link)" 
                           value={newLinkName}
                           onChange={(e) => setNewLinkName(e.target.value)}
                           className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans w-full"
@@ -830,7 +864,7 @@ useEffect(() => {
                           <input 
                             type="text" 
                             required
-                            placeholder="Paste URL..." 
+                            placeholder="Paste absolute link or URL path..." 
                             value={newLinkUrl}
                             onChange={(e) => setNewLinkUrl(e.target.value)}
                             className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans flex-1"
@@ -839,7 +873,7 @@ useEffect(() => {
                             type="submit" 
                             className="px-4 py-2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 text-blue-300 hover:text-white rounded-xl text-xs font-bold transition shrink-0"
                           >
-                            + Link
+                            + Attach
                           </button>
                         </div>
                       </form>
