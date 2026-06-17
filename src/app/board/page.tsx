@@ -10,6 +10,7 @@ interface Subtask {
   text: string;
   isDone: boolean;
   timestamp: string;
+  assignee?: string;
 }
 
 interface Attachment {
@@ -23,7 +24,7 @@ interface Ticket {
   title: string;
   description: string; 
   developer_notes?: string; 
-  tech_wizard?: string; 
+  tech_wizard?: string[]; 
   status: string;
   priority?: string;
   is_archived?: boolean;
@@ -310,16 +311,16 @@ export default function BoardPage() {
     }
   }
 
-  async function handleWizardChange(newWizard: string) {
+  async function handleWizardChange(newWizard: string[]) {
     if (!activeTicket) return;
 
     const { error } = await supabase
       .from('tickets')
-      .update({ tech_wizard: newWizard || null })
+      .update({ tech_wizard: newWizard })
       .eq('id', activeTicket.id);
 
     if (error) {
-      console.error("Failed to update assigned Wizard:", error);
+      console.error("Failed to update assigned wizard:", error);
     } else {
       const updated = { ...activeTicket, tech_wizard: newWizard };
       setActiveTicket(updated);
@@ -798,14 +799,57 @@ export default function BoardPage() {
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-gray-950 px-3 py-0.5 rounded border border-gray-800">
-                    <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wide">Tech Wizard:</span>
+                  <div className="flex flex-wrap items-center gap-2 bg-gray-950 px-3 py-1 rounded border border-gray-800 min-h-[28px]">
+                    <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wide whitespace-nowrap">
+                      Tech Wizards:
+                    </span>
+                    
+                    {activeTicket.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.map((wizard: string, idx: number) => (
+                      <span 
+                        key={idx} 
+                        className="inline-flex items-center gap-1 bg-purple-950/60 border border-purple-800/80 text-purple-300 text-[11px] font-medium px-1.5 py-0.5 rounded"
+                      >
+                        <span>🧙‍♂️ {wizard}</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const updatedWizards = (activeTicket.tech_wizard || []).filter((_: string, i: number) => i !== idx);
+                            const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
+                            setActiveTicket(updatedTicket);
+                            setTickets(tickets.map(t => t.id === activeTicket.id ? updatedTicket : t));
+                            await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
+                          }}
+                          className="text-purple-400 hover:text-red-400 ml-0.5 font-sans font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+
                     <input 
                       type="text" 
-                      placeholder="Assign Tech..."
-                      value={activeTicket.tech_wizard || ''}
-                      onChange={(e) => handleWizardChange(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none w-32 border-none p-0 focus:ring-0" 
+                      placeholder={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3 ? "" : "Add tech + Enter..."}
+                      disabled={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const target = e.currentTarget;
+                          const newName = target.value.trim();
+                          if (!newName) return;
+
+                          const currentWizards = activeTicket.tech_wizard || [];
+                          if (!currentWizards.includes(newName)) {
+                            const updatedWizards = [...currentWizards, newName];
+                            const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
+                            
+                            setActiveTicket(updatedTicket);
+                            setTickets(tickets.map(t => t.id === activeTicket.id ? updatedTicket : t));
+                            await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
+                          }
+                          target.value = '';
+                        }
+                      }}
+                      className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none min-w-[90px] flex-1 border-none p-0 focus:ring-0 disabled:hidden" 
                     />
                   </div>
                 </div>
