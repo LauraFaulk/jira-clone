@@ -47,6 +47,7 @@ export default function BoardPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editDeveloperNotes, setEditDeveloperNotes] = useState(''); 
   const [newSubtaskText, setNewSubtaskText] = useState('');
+  const [newSubtaskAssignee, setNewSubtaskAssignee] = useState<string>('');
 
   // ATTACHMENT MODAL INPUT STATES
   const [newLinkName, setNewLinkName] = useState('');
@@ -359,7 +360,8 @@ export default function BoardPage() {
       id: crypto.randomUUID(),
       text: newSubtaskText.trim(),
       isDone: false,
-      timestamp: taskTime
+      timestamp: taskTime,
+      assignee: newSubtaskAssignee || undefined
     };
 
     const updatedSubtasks = [...currentSubtasks, newSubtask];
@@ -373,6 +375,7 @@ export default function BoardPage() {
       console.error("Error adding subtask:", error);
     } else {
       setNewSubtaskText('');
+      setNewSubtaskAssignee('');
       const freshlyUpdatedTicket = { ...activeTicket, subtasks: updatedSubtasks };
       setActiveTicket(freshlyUpdatedTicket);
       setTickets(tickets.map(t => t.id === activeTicket.id ? freshlyUpdatedTicket : t));
@@ -772,22 +775,18 @@ export default function BoardPage() {
         {activeTicket && (
           <div className="absolute inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-40 select-text p-4">
             <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl max-w-5xl w-full mx-4 shadow-2xl flex flex-col max-h-[90vh]">
-              
-              {/* Header Panel */}
               <div className="flex items-center justify-between border-b border-gray-800 pb-4 mb-4 text-xs select-none">
                 <div className="flex items-center gap-3">
                   <span className="font-semibold px-2.5 py-1 rounded bg-purple-900/40 border border-purple-800 text-purple-300 font-mono tracking-wider uppercase">
                     📌 {activeTicket.status} Mode
                   </span>
-                  
                   <div className="px-2.5 py-1 rounded bg-gray-950 border border-gray-800 text-purple-400 font-bold font-mono tracking-wider text-[11px] uppercase">
                     Ticket #{activeTicket.id}
                   </div>
-                  
                   <div className="flex items-center gap-1.5 bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
                     <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">Priority:</span>
-                    <select 
-                      value={activeTicket.priority || 'Medium'} 
+                    <select
+                      value={activeTicket.priority || 'Medium'}
                       onChange={(e) => handlePriorityChange(e.target.value)}
                       className="bg-transparent text-xs font-bold text-gray-200 focus:outline-none cursor-pointer pr-1 select-none"
                     >
@@ -798,15 +797,13 @@ export default function BoardPage() {
                       <option value="Lowest" className="bg-gray-900 text-sky-400">⚪ Lowest</option>
                     </select>
                   </div>
-
                   <div className="flex flex-wrap items-center gap-2 bg-gray-950 px-3 py-1 rounded border border-gray-800 min-h-[28px]">
                     <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wide whitespace-nowrap">
                       Tech Wizards:
                     </span>
-                    
                     {activeTicket.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.map((wizard: string, idx: number) => (
-                      <span 
-                        key={idx} 
+                      <span
+                        key={idx}
                         className="inline-flex items-center gap-1 bg-purple-950/60 border border-purple-800/80 text-purple-300 text-[11px] font-medium px-1.5 py-0.5 rounded"
                       >
                         <span>🧙‍♂️ {wizard}</span>
@@ -816,7 +813,7 @@ export default function BoardPage() {
                             const updatedWizards = (activeTicket.tech_wizard || []).filter((_: string, i: number) => i !== idx);
                             const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
                             setActiveTicket(updatedTicket);
-                            setTickets(tickets.map(t => t.id === activeTicket.id ? updatedTicket : t));
+                            setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
                             await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
                           }}
                           className="text-purple-400 hover:text-red-400 ml-0.5 font-sans font-bold"
@@ -825,10 +822,9 @@ export default function BoardPage() {
                         </button>
                       </span>
                     ))}
-
-                    <input 
-                      type="text" 
-                      placeholder={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3 ? "" : "Add tech + Enter..."}
+                    <input
+                      type="text"
+                      placeholder={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3 ? '' : 'Add tech + Enter...'}
                       disabled={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3}
                       onKeyDown={async (e) => {
                         if (e.key === 'Enter') {
@@ -841,25 +837,21 @@ export default function BoardPage() {
                           if (!currentWizards.includes(newName)) {
                             const updatedWizards = [...currentWizards, newName];
                             const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
-                            
                             setActiveTicket(updatedTicket);
-                            setTickets(tickets.map(t => t.id === activeTicket.id ? updatedTicket : t));
+                            setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
                             await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
                           }
                           target.value = '';
                         }
                       }}
-                      className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none min-w-[90px] flex-1 border-none p-0 focus:ring-0 disabled:hidden" 
+                      className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none min-w-[90px] flex-1 border-none p-0 focus:ring-0 disabled:hidden"
                     />
                   </div>
                 </div>
                 <button onClick={() => setActiveTicket(null)} className="text-gray-400 hover:text-white text-sm bg-gray-800 hover:bg-gray-700 w-7 h-7 rounded-full flex items-center justify-center transition">✕</button>
               </div>
 
-              {/* TWO-COLUMN SPLIT CONTAINER LAYOUT */}
               <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-12 gap-8 min-h-0">
-                
-                {/* LEFT COLUMN: INTAKE INFORMATION */}
                 <div className="md:col-span-7 space-y-5 md:border-r md:border-gray-800/60 md:pr-6 flex flex-col min-h-0">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-800/40 pb-2 shrink-0">
                     {isEditing ? (
@@ -887,12 +879,12 @@ export default function BoardPage() {
                         📝 Internal Developer Notes & Specs
                       </h3>
                       {isEditing ? (
-                        <textarea 
-                          rows={4} 
-                          value={editDeveloperNotes} 
-                          onChange={(e) => setEditDeveloperNotes(e.target.value)} 
+                        <textarea
+                          rows={4}
+                          value={editDeveloperNotes}
+                          onChange={(e) => setEditDeveloperNotes(e.target.value)}
                           placeholder="Inject structural layout edits, logic specs, technical comments, or changes here..."
-                          className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs text-purple-300 placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none" 
+                          className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs text-purple-300 placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none"
                         />
                       ) : (
                         <div className="bg-purple-950/20 border border-purple-900/30 rounded-xl p-3 text-xs text-purple-300/90 italic font-sans leading-relaxed whitespace-pre-wrap min-h-[60px] max-h-[150px] overflow-y-auto">
@@ -905,28 +897,16 @@ export default function BoardPage() {
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN: LINKS & SUBTASK CHECKLIST */}
                 <div className="md:col-span-5 space-y-6 flex flex-col justify-between h-full min-h-0">
-                  
-                  {/* Documentation Station Link Tray */}
                   <div className="space-y-3">
                     <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider block select-none">📂 Documentation Station</h3>
-                    
                     <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto pr-1">
                       {(activeTicket.attachments || []).map((file) => (
                         <div key={file.id} className="flex items-center justify-between bg-gray-950/50 border border-gray-800 hover:border-gray-700 p-2 rounded-xl group/file">
-                          <a 
-                            href={file.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-xs text-gray-300 hover:text-blue-400 font-medium truncate flex-1 pl-1"
-                          >
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-300 hover:text-blue-400 font-medium truncate flex-1 pl-1">
                             🔗 {file.name}
                           </a>
-                          <button 
-                            onClick={() => handleDeleteAttachment(file.id)}
-                            className="text-gray-600 hover:text-red-400 text-xs px-2 opacity-0 group-hover/file:opacity-100 transition select-none"
-                          >
+                          <button onClick={() => handleDeleteAttachment(file.id)} className="text-gray-600 hover:text-red-400 text-xs px-2 opacity-0 group-hover/file:opacity-100 transition select-none">
                             ✕
                           </button>
                         </div>
@@ -937,82 +917,66 @@ export default function BoardPage() {
                     </div>
 
                     <form onSubmit={handleAddAttachment} className="flex flex-col gap-2 pt-1 select-none">
-  {/* /* 1. File/Link Choice Segmented Controls */}
-  <div className="flex bg-gray-950 p-1 rounded-xl border border-gray-800 text-xs self-start mb-1">
-    <button 
-      type="button"
-      onClick={() => setUploadType('link')}
-      className={`px-3 py-1 rounded-lg transition ${uploadType === 'link' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}
-    >
-      Link URL
-    </button>
-    <button 
-      type="button"
-      onClick={() => setUploadType('file')}
-      className={`px-3 py-1 rounded-lg transition ${uploadType === 'file' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}
-    >
-      Upload File (PDF/Image)
-    </button>
-  </div>
+                      <div className="flex bg-gray-950 p-1 rounded-xl border border-gray-800 text-xs self-start mb-1">
+                        <button type="button" onClick={() => setUploadType('link')} className={`px-3 py-1 rounded-lg transition ${uploadType === 'link' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}>
+                          Link URL
+                        </button>
+                        <button type="button" onClick={() => setUploadType('file')} className={`px-3 py-1 rounded-lg transition ${uploadType === 'file' ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`}>
+                          Upload File (PDF/Image)
+                        </button>
+                      </div>
 
-  {/* /* 2. Common Display Name Input */}
-  <input
-    type="text"
-    required
-    placeholder={uploadType === 'link' ? "Link Name (e.g., Project Scope, Notion)" : "File Name / Asset Description"}
-    value={newLinkName}
-    onChange={(e) => setNewLinkName(e.target.value)}
-    className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans w-full"
-  />
+                      <input
+                        type="text"
+                        required
+                        placeholder={uploadType === 'link' ? 'Link Name (e.g., Project Scope, Notion)' : 'File Name / Asset Description'}
+                        value={newLinkName}
+                        onChange={(e) => setNewLinkName(e.target.value)}
+                        className="bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans w-full"
+                      />
 
-  {/* /* 3. Conditional Resource Picker */}
-  <div className="flex gap-2">
-    {uploadType === 'link' ? (
-      <input
-        type="text"
-        required
-        placeholder="Paste absolute link or URL path..."
-        value={newLinkUrl}
-        onChange={(e) => setNewLinkUrl(e.target.value)}
-        className="flex-1 bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans"
-      />
-    ) : (
-      <div className="relative flex-1 bg-gray-950 border border-dashed border-gray-800 hover:border-gray-700 rounded-xl transition px-3 py-2 text-xs flex items-center justify-between cursor-pointer">
-        <input
-          type="file"
-          required={!selectedFile}
-          accept="image/*,application/pdf"
-          onChange={(e) => {
-            const file = e.target.files?.[0] || null;
-            setSelectedFile(file);
-            if (file && !newLinkName) {
-              setNewLinkName(file.name.split('.').slice(0, -1).join('.'));
-            }
-          }}
-          className="absolute inset-0 opacity-0 cursor-pointer"
-        />
-        <span className="text-gray-400 truncate max-w-[200px]">
-          {selectedFile ? selectedFile.name : "Choose screenshot or PDF..."}
-        </span>
-        <span className="text-xs text-gray-500 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">Browse</span>
-      </div>
-    )}
+                      <div className="flex gap-2">
+                        {uploadType === 'link' ? (
+                          <input
+                            type="text"
+                            required
+                            placeholder="Paste absolute link or URL path..."
+                            value={newLinkUrl}
+                            onChange={(e) => setNewLinkUrl(e.target.value)}
+                            className="flex-1 bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500 font-sans"
+                          />
+                        ) : (
+                          <div className="relative flex-1 bg-gray-950 border border-dashed border-gray-800 hover:border-gray-700 rounded-xl transition px-3 py-2 text-xs flex items-center justify-between cursor-pointer">
+                            <input
+                              type="file"
+                              required={!selectedFile}
+                              accept="image/*,application/pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] || null;
+                                setSelectedFile(file);
+                                if (file && !newLinkName) {
+                                  setNewLinkName(file.name.split('.').slice(0, -1).join('.'));
+                                }
+                              }}
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                            <span className="text-gray-400 truncate max-w-[200px]">
+                              {selectedFile ? selectedFile.name : 'Choose screenshot or PDF...'}
+                            </span>
+                            <span className="text-xs text-gray-500 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">Browse</span>
+                          </div>
+                        )}
 
-    {/* /* 4. Action Button */}
-    <button 
-      type="submit" 
-      className="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-xs px-4 transition shrink-0"
-    >
-      {uploadType === 'link' ? '+ Attach' : '+ Upload'}
-    </button>
-  </div>
-</form>
+                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-xs px-4 transition shrink-0">
+                          {uploadType === 'link' ? '+ Attach' : '+ Upload'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
-                  {/* Subtask Section Checklist */}
                   <div className="space-y-3 flex-1 flex flex-col justify-end min-h-0 pt-4 border-t border-gray-800/40">
                     <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider block select-none">🛠️ Card Subtasks Checklist</h3>
-                    
+
                     <div className="space-y-2 overflow-y-auto pr-1 flex-1 max-h-[22vh]">
                       {(activeTicket.subtasks || []).length === 0 ? (
                         <p className="text-xs text-gray-600 italic pl-1">No modular tasks logged to this card yet.</p>
@@ -1020,26 +984,27 @@ export default function BoardPage() {
                         (activeTicket.subtasks || []).map((sub) => (
                           <div key={sub.id} className="flex items-start justify-between bg-gray-950/60 border border-gray-800 rounded-xl p-2.5 transition hover:border-gray-700 group/sub">
                             <label className="flex items-start gap-3 cursor-pointer text-xs flex-1 min-w-0 pt-0.5 select-none">
-                              <input 
-                                type="checkbox" 
-                                checked={sub.isDone} 
+                              <input
+                                type="checkbox"
+                                checked={sub.isDone}
                                 onChange={() => handleToggleSubtask(sub.id)}
-                                className="accent-purple-500 w-4 h-4 rounded border-gray-800 text-purple-600 focus:ring-0 cursor-pointer shrink-0 mt-0.5" 
+                                className="accent-purple-500 w-4 h-4 rounded border-gray-800 text-purple-600 focus:ring-0 cursor-pointer shrink-0 mt-0.5"
                               />
                               <div className="flex flex-col text-left min-w-0 select-text">
                                 <span className={`whitespace-pre-wrap break-words text-gray-200 leading-relaxed ${sub.isDone ? 'line-through text-gray-600 italic' : ''}`}>
                                   {sub.text}
                                 </span>
-                                <span className="text-[9px] text-gray-600 font-mono mt-0.5">
-                                  ⏱️ Logged: {sub.timestamp || 'Prior'}
-                                </span>
+                                <div className="flex items-center gap-2 text-[9px] text-gray-600 font-mono mt-0.5 select-none">
+                                  <span>📆 Logged: {sub.timestamp || 'Prior'}</span>
+                                  {sub.assignee && (
+                                    <span className="bg-purple-950/50 border border-purple-800/60 text-purple-400 px-1.5 py-0.5 rounded font-sans font-semibold">
+                                      🧙‍♂️ {sub.assignee}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </label>
-                            <button 
-                              onClick={() => handleDeleteSubtask(sub.id)}
-                              className="text-gray-600 hover:text-red-400 opacity-0 group-hover/sub:opacity-100 transition-all text-xs px-2 self-center select-none"
-                              title="Delete subtask"
-                            >
+                            <button onClick={() => handleDeleteSubtask(sub.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover/sub:opacity-100 transition-all text-xs px-2 self-center select-none" title="Delete subtask">
                               ✕
                             </button>
                           </div>
@@ -1049,51 +1014,62 @@ export default function BoardPage() {
 
                     {!isEditing && (
                       <div className="flex flex-col gap-2 pt-2 select-none">
-                        <textarea 
-                          placeholder="Type list specs... [Ctrl + Enter to append]" 
+                        <textarea
+                          placeholder="Type list specs... [Ctrl + Enter to append]"
                           rows={2}
                           value={newSubtaskText}
                           onChange={(e) => setNewSubtaskText(e.target.value)}
                           onKeyDown={handleSubtaskKeyDown}
-                          className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans resize-none"
+                          className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-purple-500 font-sans"
                         />
-                        <button 
-                          type="button"
-                          onClick={triggerAddSubtask}
-                          className="self-end px-4 py-2 bg-gray-800 hover:bg-purple-600 border border-gray-700 hover:border-purple-500 text-purple-300 hover:text-white rounded-xl text-xs font-bold transition font-sans shadow-md"
-                        >
-                          + Add Subtask
-                        </button>
+
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                          {activeTicket?.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.length > 0 && (
+                            <select
+                              value={newSubtaskAssignee}
+                              onChange={(e) => setNewSubtaskAssignee(e.target.value)}
+                              className="bg-gray-950 border border-gray-800 text-gray-300 text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer hover:border-gray-700 h-[36px]"
+                            >
+                              <option value="">✨ Assign Subtask...</option>
+                              {activeTicket.tech_wizard.map((wizard: string, index: number) => (
+                                <option key={index} value={wizard}>
+                                  🧙‍♂️ {wizard}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+
+                          <button type="button" onClick={triggerAddSubtask} className="px-4 py-2 bg-gray-800 hover:bg-purple-600 border border-gray-700 hover:border-purple-500 text-purple-300 hover:text-white rounded-xl text-xs font-semibold transition h-[36px]">
+                            + Add Subtask
+                          </button>
+                        </div>
                       </div>
                     )}
+
+                    <div className="border-t border-gray-800 pt-4 mt-4 flex justify-between items-center text-xs font-medium select-none">
+                      <button onClick={() => setTicketToDelete(activeTicket)} className="text-gray-500 hover:text-red-400 transition">🗑️ Delete Work Item</button>
+                      <div className="flex gap-3">
+                        {!isEditing && (
+                          <button
+                            onClick={() => handleToggleArchiveStatus(activeTicket, !activeTicket.is_archived)}
+                            className="px-4 py-2 bg-gray-950 hover:bg-gray-800 text-purple-400 border border-gray-800 rounded-lg transition font-semibold"
+                          >
+                            {activeTicket.is_archived ? '🗄️ Unarchive Project' : '📥 Archive Closed Project'}
+                          </button>
+                        )}
+                        {isEditing ? (
+                          <>
+                            <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition">Cancel</button>
+                            <button onClick={handleSaveChanges} className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition shadow-lg shadow-purple-900/30 font-semibold">Save Changes</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setIsEditing(true)} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-purple-300 hover:text-white rounded-lg transition font-semibold">✏️ Edit Details</button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-
                 </div>
               </div>
-
-              {/* Action Buttons Footer Panel */}
-              <div className="border-t border-gray-800 pt-4 mt-4 flex justify-between items-center text-xs font-medium select-none">
-                <button onClick={() => setTicketToDelete(activeTicket)} className="text-gray-500 hover:text-red-400 transition">🗑️ Delete Work Item</button>
-                <div className="flex gap-3">
-                  {!isEditing && (
-                    <button 
-                      onClick={() => handleToggleArchiveStatus(activeTicket, !activeTicket.is_archived)}
-                      className="px-4 py-2 bg-gray-950 hover:bg-gray-800 text-purple-400 border border-gray-800 rounded-lg transition font-semibold"
-                    >
-                      {activeTicket.is_archived ? '🗄️ Unarchive Project' : '📥 Archive Closed Project'}
-                    </button>
-                  )}
-                  {isEditing ? (
-                    <>
-                      <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition">Cancel</button>
-                      <button onClick={handleSaveChanges} className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition shadow-lg shadow-purple-900/30 font-semibold">Save Changes</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setIsEditing(true)} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-purple-300 hover:text-white rounded-lg transition font-semibold">✏️ Edit Details</button>
-                  )}
-                </div>
-              </div>
-
             </div>
           </div>
         )}
@@ -1106,13 +1082,16 @@ export default function BoardPage() {
               <p className="text-sm text-gray-400 mt-2">Are you sure you want to delete this work item?</p>
               <div className="bg-gray-950/50 border border-gray-800/80 rounded p-3 mt-3 text-xs text-purple-300 italic truncate">"{ticketToDelete.title}"</div>
               <div className="flex justify-end gap-3 mt-6 font-medium text-xs">
-                <button onClick={() => setTicketToDelete(null)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition">Cancel</button>
-                <button onClick={handleDeleteConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition shadow-lg">Delete Permanently</button>
+                <button onClick={() => setTicketToDelete(null)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition">
+                  Cancel
+                </button>
+                <button onClick={handleDeleteConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition shadow-lg">
+                  Delete Permanently
+                </button>
               </div>
             </div>
           </div>
         )}
-
       </div>
     </DragDropContext>
   );
