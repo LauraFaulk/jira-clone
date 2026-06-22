@@ -58,6 +58,7 @@ export default function BoardPage() {
   const [isMerging, setIsMerging] = useState(false);
   const [mergeError, setMergeError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDeveloperNotes, setEditDeveloperNotes] = useState(''); 
   const [newSubtaskText, setNewSubtaskText] = useState('');
@@ -324,16 +325,45 @@ export default function BoardPage() {
 
     const { error } = await supabase
       .from('tickets')
-      .update({ title: editTitle, developer_notes: editDeveloperNotes })
+      .update({ developer_notes: editDeveloperNotes })
       .eq('id', activeTicket.id);
 
     if (error) {
       console.error("Error updating details:", error);
     } else {
       await fetchTickets();
-      setActiveTicket({ ...activeTicket, title: editTitle, developer_notes: editDeveloperNotes });
+      setActiveTicket({ ...activeTicket, developer_notes: editDeveloperNotes });
       setIsEditing(false);
     }
+  }
+
+  async function handleTitleSave() {
+    if (!activeTicket) return;
+
+    const updatedTitle = editTitle.trim();
+    if (!updatedTitle || updatedTitle === activeTicket.title) {
+      setEditTitle(activeTicket.title);
+      setIsEditingTitle(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('tickets')
+      .update({ title: updatedTitle })
+      .eq('id', activeTicket.id);
+
+    if (error) {
+      console.error('Error updating ticket title:', error);
+      setEditTitle(activeTicket.title);
+    } else {
+      const updatedTicket = { ...activeTicket, title: updatedTitle };
+      setActiveTicket(updatedTicket);
+      setTickets((currentTickets) =>
+        currentTickets.map((ticket) => ticket.id === updatedTicket.id ? updatedTicket : ticket)
+      );
+    }
+
+    setIsEditingTitle(false);
   }
 
   async function handlePriorityChange(newPriority: string) {
@@ -516,6 +546,7 @@ export default function BoardPage() {
     setEditTitle(ticket.title);
     setEditDeveloperNotes(ticket.developer_notes || '');
     setIsEditing(false);
+    setIsEditingTitle(false);
     setNewSubtaskText('');
     setNewLinkName('');
     setNewLinkUrl('');
@@ -906,25 +937,57 @@ export default function BoardPage() {
                     />
                   </div>
                 </div>
-                <button onClick={() => setActiveTicket(null)} className="text-gray-400 hover:text-white text-sm bg-gray-800 hover:bg-gray-700 w-7 h-7 rounded-full flex items-center justify-center transition">✕</button>
+                <button
+                  onClick={() => {
+                    setActiveTicket(null);
+                    setIsEditingTitle(false);
+                  }}
+                  className="text-gray-400 hover:text-white text-sm bg-gray-800 hover:bg-gray-700 w-7 h-7 rounded-full flex items-center justify-center transition"
+                >
+                  ✕
+                </button>
               </div>
 
               <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-12 gap-8 min-h-0">
                 <div className="md:col-span-7 space-y-5 md:border-r md:border-gray-800/60 md:pr-6 flex flex-col min-h-0">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-800/40 pb-2 shrink-0">
-                    {isEditing ? (
-                      <div className="w-full">
-                        <label className="text-[10px] font-bold text-purple-400 block mb-1 uppercase tracking-wider select-none">Modify Board Header Title</label>
-                        <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-purple-500 font-sans" />
-                      </div>
+                    {isEditingTitle ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        aria-label="Ticket title"
+                        value={editTitle}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        onBlur={() => void handleTitleSave()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            event.currentTarget.blur();
+                          } else if (event.key === 'Escape') {
+                            setEditTitle(activeTicket.title);
+                            setIsEditingTitle(false);
+                          }
+                        }}
+                        className="min-w-0 flex-1 bg-gray-950 border border-purple-700/70 rounded-lg px-2.5 py-1.5 text-xl font-black text-white tracking-wide focus:outline-none focus:border-purple-400 [font-family:var(--font-elsie)]"
+                      />
                     ) : (
-                      <>
-                        <h2 className="text-xl font-black text-white tracking-wide [font-family:var(--font-elsie)]">{activeTicket.title}</h2>
-                        <span className="text-[10px] text-gray-500 bg-gray-950 px-2 py-0.5 rounded border border-gray-800 shrink-0 font-sans font-medium select-none">
-                          🗓️ Received: {formatCoreTimestamp(activeTicket.created_at)}
-                        </span>
-                      </>
+                      <button
+                        type="button"
+                        title="Click to edit ticket title"
+                        onClick={() => {
+                          setEditTitle(activeTicket.title);
+                          setIsEditingTitle(true);
+                        }}
+                        className="min-w-0 flex-1 -mx-2 px-2 py-1 text-left rounded-lg border border-transparent hover:border-purple-900/50 hover:bg-purple-950/20 transition cursor-text"
+                      >
+                        <h2 className="truncate text-xl font-black text-white hover:text-purple-200 tracking-wide [font-family:var(--font-elsie)]">
+                          {activeTicket.title}
+                        </h2>
+                      </button>
                     )}
+                    <span className="text-[10px] text-gray-500 bg-gray-950 px-2 py-0.5 rounded border border-gray-800 shrink-0 font-sans font-medium select-none">
+                      🗓️ Received: {formatCoreTimestamp(activeTicket.created_at)}
+                    </span>
                   </div>
 
                   <div className="flex-1 flex flex-col gap-4 overflow-y-auto min-h-0 max-h-[62vh] pr-1">
