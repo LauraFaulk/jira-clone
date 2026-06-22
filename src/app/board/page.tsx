@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { supabase } from '../../supabaseClient';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+  DraggableProvided,
+  DraggableStateSnapshot,
+} from '@hello-pangea/dnd';
 
 interface Subtask {
   id: string;
@@ -362,6 +369,62 @@ export default function BoardPage() {
     }
   }
 
+  function renderBoardTicket(
+    ticket: Ticket,
+    provided: DraggableProvided,
+    snapshot: DraggableStateSnapshot
+  ) {
+    const subtasks = ticket.subtasks || [];
+    const doneCount = subtasks.filter((subtask) => subtask.isDone).length;
+    const badge = getPriorityBadge(ticket.priority);
+    const files = ticket.attachments || [];
+
+    return (
+      <div
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        {...provided.dragHandleProps}
+        onClick={() => openTicketDetails(ticket)}
+        style={{ ...provided.draggableProps.style }}
+        className={`p-4 rounded-lg border shadow-md flex flex-col justify-between shrink-0 min-h-[120px] transition-shadow ${
+          snapshot.isDragging
+            ? 'z-[100] bg-purple-900 border-purple-400 shadow-2xl shadow-purple-500/50 cursor-grabbing'
+            : 'bg-gray-800 border-gray-700 hover:border-purple-500/50 cursor-grab'
+        }`}
+      >
+        <div className="overflow-hidden relative w-full">
+          <span className={`absolute top-0 right-0 text-[10px] px-1.5 py-0.5 rounded border font-sans font-bold ${badge.style}`}>
+            {badge.text.split(' ')[1]}
+          </span>
+          <h4 className="font-semibold text-sm text-white group-hover:text-purple-300 pr-16 truncate">
+            <span className="text-purple-400 font-bold font-mono mr-1">#{ticket.id}</span> {ticket.title}
+          </h4>
+          <p className="text-xs text-gray-400 mt-1.5 line-clamp-2 whitespace-pre-wrap">
+            {ticket.description}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
+          {subtasks.length > 0 && (
+            <div className="text-[10px] text-purple-400 bg-purple-950/40 border border-purple-900/40 rounded px-1.5 py-0.5 font-medium">
+              📋 {doneCount}/{subtasks.length}
+            </div>
+          )}
+          {files.length > 0 && (
+            <div className="text-[10px] text-blue-400 bg-blue-950/40 border border-blue-900/40 rounded px-1.5 py-0.5 font-medium">
+              🔗 {files.length} files
+            </div>
+          )}
+          {ticket.tech_wizard && (
+            <div className="text-[10px] text-purple-300 bg-slate-950/80 border border-purple-500/20 rounded px-2 py-0.5 font-bold truncate max-w-[120px]" title={`Assigned: ${ticket.tech_wizard}`}>
+              🧙‍♂️ {ticket.tech_wizard}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   async function triggerAddSubtask() {
     if (!activeTicket || !newSubtaskText.trim()) return;
 
@@ -718,90 +781,49 @@ export default function BoardPage() {
               <div className="absolute inset-0 bg-gray-950/40 pointer-events-none" />
 
               <div className="flex min-w-max gap-6 h-full max-h-[85vh] items-center relative z-10 py-2 pr-4 md:pr-6 xl:pr-8">
-                {columns.map((columnName) => (
-                  <div 
-                    key={columnName} 
-                    className="w-80 shrink-0 bg-gray-900/60 rounded-xl flex flex-col border border-gray-800/80 h-full max-h-[82vh] backdrop-blur-sm shadow-xl shadow-black/40 overflow-hidden"
-                  >
-                    <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 rounded-t-xl shrink-0">
-                      <span className="text-base text-purple-300 font-black tracking-wide [font-family:var(--font-elsie)]">
-                        {columnName}
-                      </span>
-                      <span className="bg-gray-800 text-xs px-2.5 py-0.5 rounded-full text-gray-400 font-sans font-bold">
-                        {tickets.filter((t) => t.status?.toLowerCase() === columnName.toLowerCase() && !t.is_archived).length}
-                      </span>
-                    </div>
+                {columns.map((columnName) => {
+                  const columnTickets = tickets.filter(
+                    (ticket) => ticket.status?.toLowerCase() === columnName.toLowerCase() && !ticket.is_archived
+                  );
 
-                    <Droppable droppableId={columnName}>
-                      {(provided) => (
-                        <div 
-                          ref={provided.innerRef} 
-                          {...provided.droppableProps} 
-                          className="p-4 flex-1 overflow-y-auto space-y-3 min-h-[150px] overflow-x-hidden"
-                        >
-                          {tickets
-                            .filter((ticket) => ticket.status?.toLowerCase() === columnName.toLowerCase() && !ticket.is_archived)
-                            .map((ticket, index) => {
-                              const subtasks = ticket.subtasks || [];
-                              const doneCount = subtasks.filter(s => s.isDone).length;
-                              const badge = getPriorityBadge(ticket.priority);
-                              const files = ticket.attachments || [];
-                              
-                              return (
-                                <Draggable key={ticket.id} draggableId={ticket.id.toString()} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      onClick={() => openTicketDetails(ticket)}
-                                      style={{ ...provided.draggableProps.style }}
-                                      className={`p-4 rounded-lg border shadow-md flex flex-col justify-between shrink-0 min-h-[120px] transition-shadow ${
-                                        snapshot.isDragging 
-                                          ? "bg-purple-900/80 border-purple-500 shadow-2xl shadow-purple-500/40 backdrop-blur-md cursor-grabbing" 
-                                          : "bg-gray-800 border-gray-700 hover:border-purple-500/50 cursor-grab"
-                                      }`}
-                                    >
-                                      <div className="overflow-hidden relative w-full">
-                                        <span className={`absolute top-0 right-0 text-[10px] px-1.5 py-0.5 rounded border font-sans font-bold ${badge.style}`}>
-                                          {badge.text.split(' ')[1]}
-                                        </span>
-                                        <h4 className="font-semibold text-sm text-white group-hover:text-purple-300 pr-16 truncate">
-                                          <span className="text-purple-400 font-bold font-mono mr-1">#{ticket.id}</span> {ticket.title}
-                                        </h4>
-                                        <p className="text-xs text-gray-400 mt-1.5 line-clamp-2 whitespace-pre-wrap">
-                                          {ticket.description}
-                                        </p>
-                                      </div>
-                                      
-                                      <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                                        {subtasks.length > 0 && (
-                                          <div className="text-[10px] text-purple-400 bg-purple-950/40 border border-purple-900/40 rounded px-1.5 py-0.5 font-medium">
-                                            📋 {doneCount}/{subtasks.length}
-                                          </div>
-                                        )}
-                                        {files.length > 0 && (
-                                          <div className="text-[10px] text-blue-400 bg-blue-950/40 border border-blue-900/40 rounded px-1.5 py-0.5 font-medium">
-                                            🔗 {files.length} files
-                                          </div>
-                                        )}
-                                        {ticket.tech_wizard && (
-                                          <div className="text-[10px] text-purple-300 bg-slate-950/80 border border-purple-500/20 rounded px-2 py-0.5 font-bold truncate max-w-[120px]" title={`Assigned: ${ticket.tech_wizard}`}>
-                                            🧙‍♂️ {ticket.tech_wizard}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              );
-                            })}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                ))}
+                  return (
+                    <div
+                      key={columnName}
+                      className="w-80 shrink-0 bg-gray-900/60 rounded-xl flex flex-col border border-gray-800/80 h-full max-h-[82vh] backdrop-blur-sm shadow-xl shadow-black/40 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 rounded-t-xl shrink-0">
+                        <span className="text-base text-purple-300 font-black tracking-wide [font-family:var(--font-elsie)]">
+                          {columnName}
+                        </span>
+                        <span className="bg-gray-800 text-xs px-2.5 py-0.5 rounded-full text-gray-400 font-sans font-bold">
+                          {columnTickets.length}
+                        </span>
+                      </div>
+
+                      <Droppable
+                        droppableId={columnName}
+                        renderClone={(provided, snapshot, rubric) =>
+                          renderBoardTicket(columnTickets[rubric.source.index], provided, snapshot)
+                        }
+                      >
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className="p-4 flex-1 overflow-y-auto space-y-3 min-h-[150px] overflow-x-hidden"
+                          >
+                            {columnTickets.map((ticket, index) => (
+                              <Draggable key={ticket.id} draggableId={ticket.id.toString()} index={index}>
+                                {(provided, snapshot) => renderBoardTicket(ticket, provided, snapshot)}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
