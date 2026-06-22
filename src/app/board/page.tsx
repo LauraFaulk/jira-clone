@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { supabase } from '../../supabaseClient';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import ReactDOM from 'react-dom';
 
 interface Subtask {
   id: string;
@@ -36,13 +35,21 @@ interface Ticket {
 export default function BoardPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const columns = ["To-Do", "In Progress", "In Test", "Done"];
-  const [hasMounted, setHasMounted] = useState(false);
+  const hasMounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
 
   // VIEW CONFIGURATION MODES
   const [showArchivedView, setShowArchivedView] = useState(false);
 
   const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [mergeTicketId, setMergeTicketId] = useState('');
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeError, setMergeError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDeveloperNotes, setEditDeveloperNotes] = useState(''); 
@@ -54,8 +61,6 @@ export default function BoardPage() {
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [uploadType, setUploadType] = useState<'link' | 'file'>('link');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
-  const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
 
   async function fetchTickets() {
     const { data, error } = await supabase.from('tickets').select('*').order('id', { ascending: true });
@@ -64,22 +69,11 @@ export default function BoardPage() {
   }
 
   useEffect(() => {
-    hasMounted && setHasMounted(true); // Small syntax safety
-    setHasMounted(true);
-    fetchTickets();
+    const initialFetchTimer = window.setTimeout(() => {
+      void fetchTickets();
+    }, 0);
 
-    // 1. CREATE MODAL PORTAL MOUNT
-    if (typeof window !== 'undefined') {
-      let element = document.getElementById('board-portal-root');
-      if (!element) {
-        element = document.createElement('div');
-        element.id = 'board-portal-root';
-        document.body.appendChild(element);
-      }
-      setPortalElement(element);
-    }
-
-    // 2. LIVE WEBSOCKET DATABASE LISTENER (The Realtime Sync Engine)
+    // LIVE WEBSOCKET DATABASE LISTENER (The Realtime Sync Engine)
     const realtimeDatabaseChannel = supabase
       .channel('live-tickets-feed')
       .on(
@@ -139,6 +133,7 @@ export default function BoardPage() {
       .subscribe();
 
     return () => {
+      window.clearTimeout(initialFetchTimer);
       supabase.removeChannel(realtimeDatabaseChannel);
     };
   }, []);
@@ -191,7 +186,7 @@ export default function BoardPage() {
       const filePath = `ticket-${activeTicket.id}/${uniqueFileName}`;
 
       // Upload file directly into your existing bucket
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('intake-attachments')
         .upload(filePath, selectedFile);
 
@@ -278,6 +273,45 @@ export default function BoardPage() {
     }
   }
 
+  function openMergeDialog() {
+    setMergeTicketId('');
+    setMergeError('');
+    setIsMergeDialogOpen(true);
+  }
+
+  async function handleMergeConfirm() {
+    if (!activeTicket || !mergeTicketId) return;
+
+    const absorbedTicketId = Number(mergeTicketId);
+    setIsMerging(true);
+    setMergeError('');
+
+    const { data, error } = await supabase.rpc('merge_tickets', {
+      remaining_ticket_id: activeTicket.id,
+      merged_ticket_id: absorbedTicketId,
+    });
+
+    if (error) {
+      console.error('Ticket merge failed:', error);
+      setMergeError('The tickets could not be merged. Nothing was changed.');
+      setIsMerging(false);
+      return;
+    }
+
+    const mergedTicket = data as Ticket;
+    setTickets((currentTickets) =>
+      currentTickets
+        .filter((ticket) => ticket.id !== absorbedTicketId)
+        .map((ticket) => ticket.id === mergedTicket.id ? mergedTicket : ticket)
+    );
+    setActiveTicket(mergedTicket);
+    setEditTitle(mergedTicket.title);
+    setEditDeveloperNotes(mergedTicket.developer_notes || '');
+    setIsMergeDialogOpen(false);
+    setMergeTicketId('');
+    setIsMerging(false);
+  }
+
   async function handleSaveChanges() {
     if (!activeTicket) return;
 
@@ -307,23 +341,6 @@ export default function BoardPage() {
       console.error("Failed to update task priority:", error);
     } else {
       const updated = { ...activeTicket, priority: newPriority };
-      setActiveTicket(updated);
-      setTickets(tickets.map(t => t.id === activeTicket.id ? updated : t));
-    }
-  }
-
-  async function handleWizardChange(newWizard: string[]) {
-    if (!activeTicket) return;
-
-    const { error } = await supabase
-      .from('tickets')
-      .update({ tech_wizard: newWizard })
-      .eq('id', activeTicket.id);
-
-    if (error) {
-      console.error("Failed to update assigned wizard:", error);
-    } else {
-      const updated = { ...activeTicket, tech_wizard: newWizard };
       setActiveTicket(updated);
       setTickets(tickets.map(t => t.id === activeTicket.id ? updated : t));
     }
@@ -439,6 +456,9 @@ export default function BoardPage() {
     setNewSubtaskText('');
     setNewLinkName('');
     setNewLinkUrl('');
+    setIsMergeDialogOpen(false);
+    setMergeTicketId('');
+    setMergeError('');
   }
 
   function formatCoreTimestamp(isoString?: string) {
@@ -543,7 +563,7 @@ export default function BoardPage() {
       <div className="flex h-screen w-screen bg-gray-950 text-gray-100 font-sans overflow-hidden relative select-none">
         
         {/* SIDEBAR (INTAKE BACKLOG) */}
-        <aside className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+        <aside className="w-72 xl:w-80 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
           <div className="p-4 border-b border-gray-800 flex items-center gap-4 min-h-[120px]">
             <div 
               style={{ backgroundImage: 'url("/emivation-icon.png")' }}
@@ -560,10 +580,18 @@ export default function BoardPage() {
             </div>
           </div>
           
-          <div className="p-4 flex-1 overflow-y-auto space-y-3">
-            {tickets
-              .filter((ticket) => ticket.status?.toLowerCase() === "backlog" && !ticket.is_archived)
-              .map((ticket) => {
+          <Droppable droppableId="Backlog">
+            {(provided, snapshot) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className={`p-4 flex-1 overflow-y-auto space-y-3 transition-colors ${
+                  snapshot.isDraggingOver ? 'bg-purple-950/20 ring-1 ring-inset ring-purple-500/40' : ''
+                }`}
+              >
+                {tickets
+                  .filter((ticket) => ticket.status?.toLowerCase() === "backlog" && !ticket.is_archived)
+                  .map((ticket) => {
                 const subtasks = ticket.subtasks || [];
                 const doneCount = subtasks.filter(s => s.isDone).length;
                 const badge = getPriorityBadge(ticket.priority);
@@ -604,12 +632,20 @@ export default function BoardPage() {
                     </div>
                   </div>
                 );
-              })}
-          </div>
+                  })}
+                {provided.placeholder}
+                {snapshot.isDraggingOver && (
+                  <div className="rounded-lg border border-dashed border-purple-500/60 bg-purple-950/30 p-4 text-center text-xs font-semibold text-purple-300">
+                    Drop here to return this ticket to Intake Backlog
+                  </div>
+                )}
+              </div>
+            )}
+          </Droppable>
         </aside>
 
         {/* MAIN BOARD AREA */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden">
+        <main className="min-w-0 flex-1 flex flex-col h-full overflow-hidden">
           <header className="w-full bg-[#090b11] border-b border-gray-800 h-16 shrink-0 shadow-lg shadow-purple-950/10 flex items-center justify-end px-8">
             <button 
               onClick={() => setShowArchivedView(!showArchivedView)}
@@ -677,15 +713,15 @@ export default function BoardPage() {
           ) : (
             <div 
               style={{ backgroundImage: 'url("/emivation-background.png")' }}
-              className="flex-1 p-8 flex items-center justify-center bg-gray-950 bg-cover bg-center overflow-hidden relative"
+              className="flex-1 min-h-0 p-4 md:p-6 xl:p-8 bg-gray-950 bg-cover bg-center overflow-x-auto overflow-y-hidden relative"
             >
               <div className="absolute inset-0 bg-gray-950/40 pointer-events-none" />
 
-              <div className="flex gap-6 h-full max-h-[85vh] items-center justify-center relative z-10 py-2">
+              <div className="flex min-w-max gap-6 h-full max-h-[85vh] items-center relative z-10 py-2 pr-4 md:pr-6 xl:pr-8">
                 {columns.map((columnName) => (
                   <div 
                     key={columnName} 
-                    className="w-80 bg-gray-900/60 rounded-xl flex flex-col border border-gray-800/80 h-full max-h-[82vh] backdrop-blur-sm shadow-xl shadow-black/40 overflow-hidden"
+                    className="w-80 shrink-0 bg-gray-900/60 rounded-xl flex flex-col border border-gray-800/80 h-full max-h-[82vh] backdrop-blur-sm shadow-xl shadow-black/40 overflow-hidden"
                   >
                     <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 rounded-t-xl shrink-0">
                       <span className="text-base text-purple-300 font-black tracking-wide [font-family:var(--font-elsie)]">
@@ -889,7 +925,7 @@ export default function BoardPage() {
                       ) : (
                         <div className="bg-purple-950/20 border border-purple-900/30 rounded-xl p-3 text-xs text-purple-300/90 italic font-sans leading-relaxed whitespace-pre-wrap min-h-[60px] max-h-[150px] overflow-y-auto">
                           {activeTicket.developer_notes || (
-                            <span className="text-gray-600 font-sans not-italic">No additional developer scope files attached. click "Edit Details" below to append project updates.</span>
+                            <span className="text-gray-600 font-sans not-italic">No additional developer scope files attached. Click &quot;Edit Details&quot; below to append project updates.</span>
                           )}
                         </div>
                       )}
@@ -1046,29 +1082,104 @@ export default function BoardPage() {
                       </div>
                     )}
 
-                    <div className="border-t border-gray-800 pt-4 mt-4 flex justify-between items-center text-xs font-medium select-none">
-                      <button onClick={() => setTicketToDelete(activeTicket)} className="text-gray-500 hover:text-red-400 transition">🗑️ Delete Work Item</button>
-                      <div className="flex gap-3">
-                        {!isEditing && (
+                    <div className="border-t border-gray-800 pt-4 mt-4 text-xs font-medium select-none">
+                      {isEditing ? (
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition">Cancel</button>
+                          <button onClick={handleSaveChanges} className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition shadow-lg shadow-purple-900/30 font-semibold">Save Changes</button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 items-center justify-center gap-x-2 gap-y-2">
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="justify-self-center px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-purple-300 hover:text-white rounded-lg transition font-semibold"
+                          >
+                            ✏️ Edit Details
+                          </button>
                           <button
                             onClick={() => handleToggleArchiveStatus(activeTicket, !activeTicket.is_archived)}
-                            className="px-4 py-2 bg-gray-950 hover:bg-gray-800 text-purple-400 border border-gray-800 rounded-lg transition font-semibold"
+                            className="justify-self-center px-4 py-2 bg-gray-950 hover:bg-gray-800 text-purple-400 border border-gray-800 rounded-lg transition font-semibold"
                           >
                             {activeTicket.is_archived ? '🗄️ Unarchive Project' : '📥 Archive Closed Project'}
                           </button>
-                        )}
-                        {isEditing ? (
-                          <>
-                            <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition">Cancel</button>
-                            <button onClick={handleSaveChanges} className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition shadow-lg shadow-purple-900/30 font-semibold">Save Changes</button>
-                          </>
-                        ) : (
-                          <button onClick={() => setIsEditing(true)} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-purple-300 hover:text-white rounded-lg transition font-semibold">✏️ Edit Details</button>
-                        )}
-                      </div>
+                          <button
+                            onClick={openMergeDialog}
+                            disabled={!tickets.some((ticket) => ticket.id !== activeTicket.id && !ticket.is_archived)}
+                            title="Combine another ticket into this one"
+                            className="justify-self-center min-w-32 px-2.5 py-1.5 text-[10px] bg-gray-950 hover:bg-purple-950/40 text-gray-500 hover:text-purple-300 border border-gray-800 hover:border-purple-800 rounded-md transition disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            ⇄ Merge Ticket
+                          </button>
+                          <button
+                            onClick={() => setTicketToDelete(activeTicket)}
+                            className="justify-self-center min-w-32 px-2.5 py-1.5 text-[10px] bg-gray-950 hover:bg-purple-950/40 text-gray-500 hover:text-purple-300 border border-gray-800 hover:border-purple-800 rounded-md transition"
+                          >
+                            🗑️ Delete Work Item
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MERGE CONFIRMATION MODAL OVERLAY */}
+        {isMergeDialogOpen && activeTicket && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 transition-all select-none">
+            <div className="bg-gray-900 border border-purple-900/60 p-6 rounded-xl max-w-md w-full mx-4 shadow-2xl shadow-purple-950/30">
+              <h3 className="text-lg font-bold text-white tracking-wide">Are you sure?</h3>
+              <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+                Choose the ticket to merge into <span className="text-purple-300 font-semibold">#{activeTicket.id} {activeTicket.title}</span>.
+                The selected ticket will be removed after all of its details, notes, subtasks, attachments, priority, and tech assignments are combined into this ticket.
+              </p>
+
+              <label htmlFor="merge-ticket-select" className="block mt-5 mb-2 text-[11px] font-bold uppercase tracking-wider text-purple-400">
+                Ticket to merge
+              </label>
+              <select
+                id="merge-ticket-select"
+                value={mergeTicketId}
+                onChange={(event) => {
+                  setMergeTicketId(event.target.value);
+                  setMergeError('');
+                }}
+                disabled={isMerging}
+                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-purple-500 disabled:opacity-60"
+              >
+                <option value="">Select a ticket...</option>
+                {tickets
+                  .filter((ticket) => ticket.id !== activeTicket.id && !ticket.is_archived)
+                  .map((ticket) => (
+                    <option key={ticket.id} value={ticket.id}>
+                      #{ticket.id} · {ticket.title} ({ticket.status})
+                    </option>
+                  ))}
+              </select>
+
+              {mergeError && (
+                <p className="mt-3 rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+                  {mergeError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6 font-medium text-xs">
+                <button
+                  onClick={() => setIsMergeDialogOpen(false)}
+                  disabled={isMerging}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMergeConfirm}
+                  disabled={!mergeTicketId || isMerging}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded transition shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isMerging ? 'Merging...' : 'Merge Tickets'}
+                </button>
               </div>
             </div>
           </div>
@@ -1080,7 +1191,7 @@ export default function BoardPage() {
             <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl max-w-sm w-full mx-4 shadow-2xl">
               <h3 className="text-lg font-bold text-white tracking-wide">Confirm Deletion</h3>
               <p className="text-sm text-gray-400 mt-2">Are you sure you want to delete this work item?</p>
-              <div className="bg-gray-950/50 border border-gray-800/80 rounded p-3 mt-3 text-xs text-purple-300 italic truncate">"{ticketToDelete.title}"</div>
+              <div className="bg-gray-950/50 border border-gray-800/80 rounded p-3 mt-3 text-xs text-purple-300 italic truncate">&ldquo;{ticketToDelete.title}&rdquo;</div>
               <div className="flex justify-end gap-3 mt-6 font-medium text-xs">
                 <button onClick={() => setTicketToDelete(null)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition">
                   Cancel
