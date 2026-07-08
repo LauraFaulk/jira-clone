@@ -886,55 +886,56 @@ export default function BoardPage() {
                       <option value="Lowest" className="bg-gray-900 text-sky-400">⚪ Lowest</option>
                     </select>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 bg-gray-950 px-3 py-1 rounded border border-gray-800 min-h-[28px]">
+                  <div className="flex items-start gap-2 bg-gray-950 px-3 py-1 rounded border border-gray-800 min-h-[28px] max-h-[38px] overflow-hidden">
                     <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wide whitespace-nowrap">
                       Tech Wizards:
                     </span>
-                    {activeTicket.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.map((wizard: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 bg-purple-950/60 border border-purple-800/80 text-purple-300 text-[11px] font-medium px-1.5 py-0.5 rounded"
-                      >
-                        <span>🧙‍♂️ {wizard}</span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const updatedWizards = (activeTicket.tech_wizard || []).filter((_: string, i: number) => i !== idx);
-                            const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
-                            setActiveTicket(updatedTicket);
-                            setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
-                            await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
-                          }}
-                          className="text-purple-400 hover:text-red-400 ml-0.5 font-sans font-bold"
+                    <div className="flex flex-1 flex-wrap items-center gap-2 max-h-[28px] overflow-y-auto pr-1">
+                      {activeTicket.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.map((wizard: string, idx: number) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 bg-purple-950/60 border border-purple-800/80 text-purple-300 text-[11px] font-medium px-1.5 py-0.5 rounded"
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      placeholder={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3 ? '' : 'Add tech + Enter...'}
-                      disabled={activeTicket.tech_wizard && activeTicket.tech_wizard.length >= 3}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const target = e.currentTarget;
-                          const newName = target.value.trim();
-                          if (!newName) return;
+                          <span>🧙‍♂️ {wizard}</span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const updatedWizards = (activeTicket.tech_wizard || []).filter((_: string, i: number) => i !== idx);
+                              const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
+                              setActiveTicket(updatedTicket);
+                              setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
+                              await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
+                            }}
+                            className="text-purple-400 hover:text-red-400 ml-0.5 font-sans font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Add tech + Enter..."
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const target = e.currentTarget;
+                            const newName = target.value.trim();
+                            if (!newName) return;
 
-                          const currentWizards = activeTicket.tech_wizard || [];
-                          if (!currentWizards.includes(newName)) {
-                            const updatedWizards = [...currentWizards, newName];
-                            const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
-                            setActiveTicket(updatedTicket);
-                            setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
-                            await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
+                            const currentWizards = activeTicket.tech_wizard || [];
+                            if (!currentWizards.includes(newName)) {
+                              const updatedWizards = [...currentWizards, newName];
+                              const updatedTicket = { ...activeTicket, tech_wizard: updatedWizards };
+                              setActiveTicket(updatedTicket);
+                              setTickets(tickets.map((t) => t.id === activeTicket.id ? updatedTicket : t));
+                              await supabase.from('tickets').update({ tech_wizard: updatedWizards }).eq('id', activeTicket.id);
+                            }
+                            target.value = '';
                           }
-                          target.value = '';
-                        }
-                      }}
-                      className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none min-w-[90px] flex-1 border-none p-0 focus:ring-0 disabled:hidden"
-                    />
+                        }}
+                        className="bg-transparent text-xs font-bold text-gray-100 placeholder-gray-700 focus:outline-none min-w-[90px] flex-1 border-none p-0 focus:ring-0"
+                      />
+                    </div>
                   </div>
                 </div>
                 <button
