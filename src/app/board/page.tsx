@@ -866,10 +866,10 @@ export default function BoardPage() {
             <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl max-w-5xl w-full mx-4 shadow-2xl flex flex-col max-h-[90vh]">
               <div className="flex items-center justify-between border-b border-gray-800 pb-4 mb-4 text-xs select-none">
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold px-2.5 py-1 rounded bg-purple-900/40 border border-purple-800 text-purple-300 font-mono tracking-wider uppercase">
+                  <span className="inline-flex min-h-[34px] items-center justify-center text-center font-semibold px-2.5 py-1 rounded bg-purple-900/40 border border-purple-800 text-purple-300 font-mono tracking-wider uppercase">
                     📌 {activeTicket.status} Mode
                   </span>
-                  <div className="px-2.5 py-1 rounded bg-gray-950 border border-gray-800 text-purple-400 font-bold font-mono tracking-wider text-[11px] uppercase">
+                  <div className="flex min-h-[34px] items-center justify-center text-center px-2.5 py-1 rounded bg-gray-950 border border-gray-800 text-purple-400 font-bold font-mono tracking-wider text-[11px] uppercase">
                     Ticket #{activeTicket.id}
                   </div>
                   <div className="flex items-center gap-1.5 bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
@@ -886,11 +886,11 @@ export default function BoardPage() {
                       <option value="Lowest" className="bg-gray-900 text-sky-400">⚪ Lowest</option>
                     </select>
                   </div>
-                  <div className="flex items-start gap-2 bg-gray-950 px-3 py-1 rounded border border-gray-800 min-h-[28px] max-h-[38px] overflow-hidden">
-                    <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wide whitespace-nowrap">
+                  <div className="flex items-start gap-2 bg-gray-950 px-3 py-1.5 rounded border border-gray-800 min-h-[34px] max-h-[64px] overflow-hidden">
+                    <span className="self-center text-[11px] text-purple-400 font-bold uppercase tracking-wide whitespace-nowrap">
                       Tech Wizards:
                     </span>
-                    <div className="flex flex-1 flex-wrap items-center gap-2 max-h-[28px] overflow-y-auto pr-1">
+                    <div className="flex flex-1 flex-wrap items-center gap-2 max-h-[52px] overflow-y-auto pr-1">
                       {activeTicket.tech_wizard && Array.isArray(activeTicket.tech_wizard) && activeTicket.tech_wizard.map((wizard: string, idx: number) => (
                         <span
                           key={idx}
