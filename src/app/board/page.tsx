@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { supabase } from '../../supabaseClient';
 import {
@@ -740,7 +741,13 @@ export default function BoardPage() {
 
         {/* MAIN BOARD AREA */}
         <main className="min-w-0 flex-1 flex flex-col h-full overflow-hidden">
-          <header className="w-full bg-[#090b11] border-b border-gray-800 h-16 shrink-0 shadow-lg shadow-purple-950/10 flex items-center justify-end px-8">
+          <header className="w-full bg-[#090b11] border-b border-gray-800 h-16 shrink-0 shadow-lg shadow-purple-950/10 flex items-center justify-end gap-3 px-8">
+            <Link
+              href="/sparkle-stats"
+              className="px-4 py-1.5 rounded-xl border text-xs font-bold font-sans transition shadow-md flex items-center gap-1.5 bg-gray-900 border-gray-800 text-purple-400 hover:text-white hover:border-gray-700"
+            >
+              ✨ Sparkle Stats
+            </Link>
             <button 
               onClick={() => setShowArchivedView(!showArchivedView)}
               className={`px-4 py-1.5 rounded-xl border text-xs font-bold font-sans transition shadow-md flex items-center gap-1.5 ${
