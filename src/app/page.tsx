@@ -23,14 +23,14 @@ export default function ProjectRequestStation() {
   // Selector Option Parameter Matrices
   const departments = [
     'Accounting', 'Brand Promise', 'Copilot', 'DB Service', 
-    'DEV', 'IT', 'Internal Education', 'Innovation', 'Launch', 'Legal', 
+    'DEV', 'Insurance Verification', 'IT', 'Internal Education', 'Innovation', 'Launch', 'Legal', 
     'Marketing', 'Ops', 'Patient Billing 3.0', 'People Services', 
     'Practice Booster & eAssist Publishing', 'Regional Lead', 'Sales',
     'Talent Onboarding', 'Talent Placement'
   ].sort();
 
   const products = [
-    'eAssist Portal', 'Launch Lagoon', 'Opal', 'Oracle', 'Signature App',
+    'eAssist Portal', 'IV', 'Launch Lagoon', 'Opal', 'Oracle', 'Signature App',
     'TL Memo Board', 'The Placement Pool', 'Pearl', 'Zilla', 'Other'
   ];
 
